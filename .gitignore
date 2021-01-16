@@ -1,0 +1,21 @@
+# the first version of the project
+previous/
+
+# PyCharm project
+.idea/
+
+# local database
+memory.db
+
+# auxiliary text files and scripts
+*.txt
+load_EDUs.py
+
+images/
+
+# logs
+log/
+
+# compiled and confidential files
+src/__pycache__/
+src/bot_info.py
