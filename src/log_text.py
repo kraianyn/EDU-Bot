@@ -7,11 +7,12 @@ CT_STARTS, NT_STARTS = 'communication thread starts', 'notification thread start
 UNAVAILABLE_COMMAND = '{} uses /{} with role {}'
 STARTS_NOT_PRIVATELY = '{} is invited to continue {} privately'
 STARTS, ENDS, INTERRUPTS = '{} starts {}', '{} ends {}', '{} uses /{} during {}'
+BECOMES_FAMILIAR = '{} becomes familiar with {}'
 
 START_BEING_REGISTERED, REGISTERS = '{} uses /start already being registered', '{} registers as from {}'
 LEAVE_NOT_PRIVATELY, LEAVES, STAYS = '{} uses /leave in non-private {}', '{} leaves from {}', '{} refuses to leave'
 
-COMMANDS, DESCRIPTION = '{} displays commands', '{} displays description of /{}'
+COMMANDS = '{} displays commands'
 
 CLAIM_BEING_LEADER = '{} uses /claim already being a leader'
 CLAIM_WITH_LEADER = "{} uses /claim when the group's leader is {}"
@@ -39,4 +40,4 @@ AGREES_LATE = '{} agrees to be notified about "{}" after it has passed'
 DISAGREES_LATE = '{} disagrees to be notified about "{}" after it has passed'
 LAST_ANSWERS = 'all students of {} have answered concerning "{}"'
 
-INFO, EVENTS = '{} displays info', '{} displays the events'
+INFO, EVENTS = '{} displays info', '{} displays events'

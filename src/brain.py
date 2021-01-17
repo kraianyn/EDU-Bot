@@ -34,11 +34,7 @@ def command_handler(update: Update, _):
             try:
                 command = COMMANDS[command_str]
             except KeyError:  # if the message contains text other than the command
-                if message.text[:6] == '/help ':  # if the command makes the bot display description
-                    command_str = 'help'
-                    command = COMMANDS[command_str]
-                else:  # if the command is hidden in the text
-                    return  # no response since the command is used inappropriately
+                return  # no response since the command is used inappropriately
 
             # if the command is not a leader one or the user is a leader
             if command.role != LEADER_ROLE or record.role == LEADER_ROLE:
@@ -90,26 +86,26 @@ def poll_answer_handler(update: Update, _):
         _ (telegram.CallbackContext): context object passed by the PollAnswerHandler. Not used.
     """
     # the chat is having an interaction if it was able to give a poll answer
-    conn = connect(DATABASE)
-    c = conn.cursor()
+    connection = connect(DATABASE)
+    cursor = connection.cursor()
 
-    c.execute(  # record of the user that the answer is given by
+    cursor.execute(  # record of the user that the answer is given by
         'SELECT group_id FROM chats WHERE id = ?',
         (update.poll_answer.user.id,)
     )
     try:
-        group_id = c.fetchone()[0]
+        group_id = cursor.fetchone()[0]
     except TypeError:  # if the user is not registered
         chat_id = None  # it is impossible to get id of group chat of the user's group
     else:  # if the user is registered
-        c.execute(  # record of group chat of the user's group
+        cursor.execute(  # record of group chat of the user's group
             'SELECT id FROM chats WHERE group_id = ? AND type <> 0',
             (group_id,)
         )
-        chat_id = c.fetchone()[0]
+        chat_id = cursor.fetchone()[0]
 
-    c.close()
-    conn.close()
+    cursor.close()
+    connection.close()
 
     if chat_id:  # if the user is registered
         i.current[chat_id].next_action(update)

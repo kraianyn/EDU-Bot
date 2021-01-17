@@ -134,7 +134,7 @@ TOO_LONG_GROUP_NAME = (
 
 CONFIRMATION_POLL_SENT = (
     '',
-    'CONFIRMATION_POLL_SENT',
+    "My creator has coded me to be incredulous, so I'm gonna ask your groupmates just to make sure",
     ''
 )
 LEADER_CONFIRMATION_QUESTION = (
@@ -221,10 +221,15 @@ COMMANDS = (  # these string are meant to be formatted to include non-ordinary c
     '/info — see info your group has saved'
     '{}'  # possible command for KPI students
     '{}'  # possible non-ordinary commands
-    '\n\n/help command — see description for the command\n'
-    '/feedback !— make me better with feedback to my creator\n'
-    '/leave — make us strangers again',
+    '\n\n/feedback !— make me better with feedback to my creator\n'
+    '/leave — make us strangers again'
+    '{}',
 
+    ''
+)
+FT_COMMANDS = (
+    '',
+    '\n\nBy the way, when you use a command for the first time, I explain how it works as we go)',
     ''
 )
 ADMIN_COMMANDS = (  # leader commands
@@ -259,6 +264,11 @@ KPI_CAMPUS_COMMAND = (
 
 # -------------------------------------------------------------------------------------------------------- adding admin
 
+FT_ASK_NEW_ADMIN = (
+    '',
+    'FT_ASK_NEW_ADMIN',
+    ''
+)
 ASK_NEW_ADMIN = (
     '',
     'ASK_NEW_ADMIN',
@@ -305,9 +315,20 @@ ONGOING_ADDING_ADMIN = (
 
 # ------------------------------------------------------------------------------------------------------ removing admin
 
+FT_ASK_ADMIN = (
+    '',
+    'FT_ASK_ADMIN',
+    ''
+)
 ASK_ADMIN = (
     '',
     'ASK_ADMIN',
+    ''
+)
+FT_ASK_TO_NOTIFY_FORMER = (
+    '',
+    "{} is not an admin anymore. Should I let them know? "
+    "If you agree, I'll tell them they can no longer use the admin commands.",
     ''
 )
 ASK_TO_NOTIFY_FORMER = (
@@ -325,9 +346,9 @@ FORMER_ADMIN_NOTIFIED = (
     'FORMER_NOTIFIED',
     ''
 )
-FORMER_ADMIN_NOT_NOTIFIED = (
+FORMER_NOT_NOTIFIED = (
     '',
-    'FORMER_ADMIN_NOT_NOTIFIED',
+    'FORMER_NOT_NOTIFIED',
     ''
 )
 
@@ -370,12 +391,21 @@ NO_INFO = (
     ''
 )
 
-# --------------------------------------------------------------------------------- connecting e-campus account
 # -------------------------------------------------------------------------------------------------------- adding event
 
+FT_ASK_NEW_EVENT = (
+    '',
+    'FT_ASK_NEW_EVENT',
+    ''
+)
 ASK_NEW_EVENT = (
     '',
     'ASK_NEW_EVENT',
+    ''
+)
+FT_ASK_DATE = (
+    '',
+    'FT_ASK_DATE',
     ''
 )
 ASK_DATE = (
@@ -383,12 +413,24 @@ ASK_DATE = (
     'ASK_DATE',
     ''
 )
-
-# ----------------------------------------------------------------------------------------- connecting e-campus account
-
-ECAMPUS_ACCOUNT_ACCESS = (
+FT_NEW_EVENT = (
     '',
-    'ECAMPUS_ACCOUNT_ACCESS',
+    'FT_NEW_EVENT:\n\n{}\n\n{}',
+    ''
+)
+NEW_EVENT = (
+    '',
+    'New event:\n\n{}\n\n{}',
+    ''
+)
+EXPECT_NOTIFICATIONS = (
+    '',
+    'I will notify you',
+    ''
+)
+EXPECT_NO_NOTIFICATIONS = (
+    '',
+    "I won't notify you",
     ''
 )
 
@@ -454,11 +496,6 @@ INVALID_MINUTE = (
     'INVALID_MINUTE',
     ''
 )
-NEW_EVENT = (
-    '',
-    'New event:\n\n{}\n\n{}',
-    ''
-)
 ASK_TO_NOTIFY = (
     ('', ''),
     (
@@ -468,16 +505,6 @@ ASK_TO_NOTIFY = (
         'Do you want me to notify you about this one?'
     ),
     ('', '')
-)
-EXPECT_NOTIFICATIONS = (
-    '',
-    'I will notify you',
-    ''
-)
-EXPECT_NO_NOTIFICATIONS = (
-    '',
-    "I won't notify you",
-    ''
 )
 WOULD_EXPECT_NOTIFICATIONS = (
     '',
@@ -492,6 +519,11 @@ WOULD_EXPECT_NO_NOTIFICATIONS = (
 
 # -------------------------------------------------------------------------------------------------- saving information
 
+FT_ASK_NEW_INFO = (
+    '',
+    'FT_ASK_NEW_INFO',
+    ''
+)
 ASK_NEW_INFO = (
     '',
     'ASK_NEW_INFO',
@@ -528,6 +560,11 @@ INVALID_INFO = (
 
 # ------------------------------------------------------------------------------------------------ deleting information
 
+FT_ASK_INFO = (
+    '',
+    'FT_ASK_INFO',
+    ''
+)
 ASK_INFO = (
     '',
     'ASK_INFO',
@@ -564,6 +601,11 @@ ONGOING_DELETING_INFO = (
 
 # ------------------------------------------------------------------------------------------------ clearing information
 
+FT_ASK_CLEARING_INFO = (
+    '',
+    'FT_ASK_CLEARING_INFO',
+    ''
+)
 ASK_CLEARING_INFO = (
     '',
     'ASK_CLEARING_INFO',
@@ -600,6 +642,11 @@ ONGOING_CLEARING_INFO = (
 
 # ----------------------------------------------------------------------------------------------------- changing leader
 
+FT_ASK_NEW_LEADER = (
+    '',
+    'FT_ASK_NEW_LEADER',
+    ''
+)
 ASK_NEW_LEADER = (
     '',
     'ASK_NEW_LEADER',
@@ -612,7 +659,7 @@ YOU_NOW_LEADER = (
 )
 NOW_LEADER = (
     '',
-    "{} is now your group's leader",
+    "{} is now your group's leader. Gonna let them know.",
     ''
 )
 
@@ -639,100 +686,13 @@ ONGOING_CHANGING_LEADER = (
     ''
 )
 
-# ---------------------------------------------------------------------------------------------- displaying description
-
-REGISTRATION_DESCRIPTION = (
-    '',
-    'Remember when we first met?)',
-    ''
-)
-LEADER_CONFIRMATION_DESCRIPTION = (
-    '',
-    'LEADER_CONFIRMATION_DESCRIPTION.',
-    ''
-)
-ADDING_ADMIN_DESCRIPTION = (
-    '',
-    'ADDING_ADMIN_DESCRIPTION.',
-    ''
-)
-REMOVING_ADMIN_DESCRIPTION = (
-    '',
-    'REMOVING_ADMIN_DESCRIPTION.',
-    ''
-)
-DISPLAYING_COMMANDS_DESCRIPTION = (
-    '',
-    "I'm sure that you're good but whatever... This command will display all commands that are available for you. "
-    "With a brief description. That's it.",
-    ''
-)
-DISPLAYING_EVENTS_DESCRIPTION = (
-    '',
-    'DISPLAYING_EVENTS_DESCRIPTION.',
-    ''
-)
-DISPLAYING_INFO_DESCRIPTION = (
-    '',
-    'DISPLAYING_INFO_DESCRIPTION.',
-    ''
-)
-ADDING_EVENT_DESCRIPTION = (
-    '',
-    'ADDING_EVENT_DESCRIPTION.',
-    ''
-)
-SAVING_INFO_DESCRIPTION = (
-    '',
-    'SAVING_INFO_DESCRIPTION.',
-    ''
-)
-DELETING_INFO_DESCRIPTION = (
-    '',
-    'DELETING_INFO_DESCRIPTION.',
-    ''
-)
-CLEARING_INFO_DESCRIPTION = (
-    '',
-    'CLEARING_INFO_DESCRIPTION.',
-    ''
-)
-CHANGING_LEADER_DESCRIPTION = (
-    '',
-    'CHANGING_LEADER_DESCRIPTION.',
-    ''
-)
-DISPLAYING_DESCRIPTION_DESCRIPTION = (
-    '',
-    'DISPLAYING_DESCRIPTION_DESCRIPTION',
-    ''
-)
-LEAVING_DESCRIPTION = (
-    '',
-    'LEAVING_DESCRIPTION.',
-    ''
-)
-
-# ----------------------------------------------------------------------------------- displaying description exceptions
-
-CONTROVERSIAL_DESCRIPTION_REQUEST = (
-    '',
-    'Good one.',
-    ''
-)
-INVALID_DESCRIPTION_REQUEST = (
-    '',
-    'Ok... so what do you want me to help you with?',
-    ''
-)
-REMEMBER_UNAVAILABLE = (
-    '',
-    ' REMEMBER_UNAVAILABLE.',
-    ''
-)
-
 # ------------------------------------------------------------------------------------------------------------- leaving
 
+FT_ASK_LEAVING = (
+    '',
+    'FT_ASK_LEAVING',
+    ''
+)
 ASK_LEAVING = (
     '',
     'ASK_LEAVING',

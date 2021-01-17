@@ -1,29 +1,34 @@
 from datetime import datetime
 from typing import Union
 from sqlite3 import connect
-from src.config import DATABASE, ChatRecord
+from src.config import DATABASE, ChatRecord, Familiarity
 
 
 def get_chat_record(chat_id: int) -> Union[ChatRecord, None]:
     """
-    This function looks for record of the chat with the given id in the database and returns it.
+    This function looks for record of the chat with the given id in the database.
 
     Args:
         chat_id (int): id of the chat that record will be returned of.
 
     Returns (src.config.ChatRecord or None): record of the chat with the given id. None if the record is not found.
     """
-    conn = connect(DATABASE)
-    c = conn.cursor()
+    connection = connect(DATABASE)
+    cursor = connection.cursor()
 
-    c.execute('SELECT * FROM chats WHERE id = ?', (chat_id,))
+    cursor.execute(
+        'SELECT * FROM chats WHERE id = ?',
+        (chat_id,)
+    )
+    record = cursor.fetchone()
+
     try:
-        record = ChatRecord(*c.fetchone())
+        record = ChatRecord(*record[:6], Familiarity(*record[6]), record[7])
     except TypeError:
         record = None
 
-    c.close()
-    conn.close()
+    cursor.close()
+    connection.close()
 
     return record
 

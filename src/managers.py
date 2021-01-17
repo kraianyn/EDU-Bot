@@ -80,16 +80,15 @@ def leader_confirmation(record: c.ChatRecord, update: Update):
                 # if the group chat is not having an interaction or the interaction is not leader confirmation
                 if not is_having or not isinstance(current[group_chat_record[0]], i.LeaderConfirmation):
                     command = COMMANDS[i.LeaderConfirmation.COMMAND]
-                    if attempt_interaction(command, record, chat, is_private, message, group_chat_record):
-                        i.BOT.send_message(record.id, t.CONFIRMATION_POLL_SENT[record.language])
+                    attempt_interaction(command, record, chat, is_private, message, group_chat_record)
 
                 else:  # if the group chat is having an interaction and the interaction is leader confirmation
                     interaction = current[group_chat_record[0]]
 
                     if not interaction.is_candidate(record.id):  # if the candidate's groupmate
-                        i.cl.info(lt.CLAIMS_LATE.format(record.id, interaction.CANDIDATE_ID))
+                        i.cl.info(lt.CLAIMS_LATE.format(record.id, interaction.candidate_id))
                         interaction.add_claimer(record.id, record.language)
-                        text = t.ALREADY_CLAIMED[record.language].format(interaction.CANDIDATE_USERNAME)
+                        text = t.ALREADY_CLAIMED[record.language].format(interaction.candidate_username)
                         message.reply_text(text, quote=not is_private)
                     else:  # if the user is the candidate
                         interaction.respond(COMMANDS[i.LeaderConfirmation.COMMAND])
@@ -282,34 +281,6 @@ def changing_leader(record: c.ChatRecord, update: Update):
         i.cl.info(lt.RESIGN_ALONE.format(record.id))
 
 
-def displaying_description(record: c.ChatRecord, update: Update):
-    """
-    This function is called when a registered user uses the command /help, which is supposed to be followed by a
-    different command. It makes the bot display description for the latter command. If the command /help is used alone,
-    description for it is displayed. The message is a reply in non-private chats.
-
-    Args: see src.managers.leaving.__doc__.
-    """
-    message = update.effective_message
-    text = message.text
-
-    if text != '/help':
-        description_for = text[text.find('/help') + 6:]
-        try:
-            text = COMMANDS[description_for].description[record.language]
-        except KeyError:
-            text = t.INVALID_DESCRIPTION_REQUEST[record.language]
-        else:
-            if record.role < COMMANDS[description_for].role:
-                text += t.REMEMBER_UNAVAILABLE[record.language]
-    else:
-        text = t.DISPLAYING_DESCRIPTION_DESCRIPTION[record.language]
-        description_for = 'help'
-
-    message.reply_text(text, quote=update.effective_chat.type != Chat.PRIVATE)
-    i.cl.info(lt.DESCRIPTION.format(record.id, description_for))
-
-
 def sending_feedback(record: c.ChatRecord, update: Update):
     pass
 
@@ -335,30 +306,29 @@ def leaving(record: c.ChatRecord, update: Update):
 
 
 COMMANDS: dict[str, c.Command] = {
-    'start': c.Command(registration, c.ORDINARY_ROLE, i.Registration, t.REGISTRATION_DESCRIPTION),
-    'claim': c.Command(leader_confirmation, c.ORDINARY_ROLE, i.LeaderConfirmation, t.LEADER_CONFIRMATION_DESCRIPTION),
-    'commands': c.Command(i.displaying_commands, c.ORDINARY_ROLE, None, t.DISPLAYING_COMMANDS_DESCRIPTION),
-    'trust': c.Command(adding_admin, c.LEADER_ROLE, i.AddingAdmin, t.ADDING_ADMIN_DESCRIPTION),
-    'distrust': c.Command(removing_admin, c.LEADER_ROLE, i.RemovingAdmin, t.REMOVING_ADMIN_DESCRIPTION),
-    'events': c.Command(i.displaying_events, c.ORDINARY_ROLE, None, t.DISPLAYING_EVENTS_DESCRIPTION),
-    'info': c.Command(i.displaying_info, c.ORDINARY_ROLE, None, t.DISPLAYING_INFO_DESCRIPTION),
-    # 'campus': c.Command(connecting_ecampus, c.ORDINARY_ROLE, i.ConnectingECampus, t.CONNECTING_ECAMPUS_DESCRIPTION),
-    'new': c.Command(adding_event, c.ADMIN_ROLE, i.AddingEvent, t.ADDING_EVENT_DESCRIPTION),
-    # 'cancel': c.Command(canceling_event, c.ADMIN_ROLE, i.CancelingEvent, t.CANCELING_EVENT_DESCRIPTION),
-    'save': c.Command(saving_info, c.ADMIN_ROLE, i.SavingInfo, t.SAVING_INFO_DESCRIPTION),
-    'delete': c.Command(deleting_info, c.ADMIN_ROLE, i.DeletingInfo, t.DELETING_INFO_DESCRIPTION),
-    'clear': c.Command(deleting_info, c.ADMIN_ROLE, i.ClearingInfo, t.CLEARING_INFO_DESCRIPTION),
-    # 'tell': c.Command(notifying_group, c.LEADER_ROLE, i.NotifyingGroup, t.NOTIFYING_GROUPMATES_DESCRIPTION),
-    # 'ask': c.Command(asking_group, c.LEADER_ROLE, i.AskingGroup, t.ASKING_GROUPMATES_DESCRIPTION),
-    'resign': c.Command(changing_leader, c.LEADER_ROLE, i.ChangingLeader, t.CHANGING_LEADER_DESCRIPTION),
-    'help': c.Command(displaying_description, c.ORDINARY_ROLE, None, t.CONTROVERSIAL_DESCRIPTION_REQUEST),
-    # 'feedback': c.Command(sending_feedback, c.ORDINARY_ROLE, i.SendingFeedback, t.SENDING_FEEDBACK_DESCRIPTION),
-    'leave': c.Command(leaving, c.ORDINARY_ROLE, i.Leaving, t.LEAVING_DESCRIPTION),
+    'start': c.Command(registration, c.ORDINARY_ROLE, i.Registration),
+    'claim': c.Command(leader_confirmation, c.ORDINARY_ROLE, i.LeaderConfirmation),
+    'commands': c.Command(i.displaying_commands, c.ORDINARY_ROLE, None),
+    'trust': c.Command(adding_admin, c.LEADER_ROLE, i.AddingAdmin),
+    'distrust': c.Command(removing_admin, c.LEADER_ROLE, i.RemovingAdmin),
+    'events': c.Command(i.displaying_events, c.ORDINARY_ROLE, None),
+    'info': c.Command(i.displaying_info, c.ORDINARY_ROLE, None),
+    # 'campus': c.Command(connecting_ecampus, c.ORDINARY_ROLE, i.ConnectingECampus),
+    'new': c.Command(adding_event, c.ADMIN_ROLE, i.AddingEvent),
+    # 'cancel': c.Command(canceling_event, c.ADMIN_ROLE, i.CancelingEvent),
+    'save': c.Command(saving_info, c.ADMIN_ROLE, i.SavingInfo),
+    'delete': c.Command(deleting_info, c.ADMIN_ROLE, i.DeletingInfo),
+    'clear': c.Command(deleting_info, c.ADMIN_ROLE, i.ClearingInfo),
+    # 'tell': c.Command(notifying_group, c.LEADER_ROLE, i.NotifyingGroup),
+    # 'ask': c.Command(asking_group, c.LEADER_ROLE, i.AskingGroup),
+    'resign': c.Command(changing_leader, c.LEADER_ROLE, i.ChangingLeader),
+    # 'feedback': c.Command(sending_feedback, c.ORDINARY_ROLE, i.SendingFeedback),
+    'leave': c.Command(leaving, c.ORDINARY_ROLE, i.Leaving),
 }
 
 
 def attempt_interaction(command: c.Command, record: c.ChatRecord, chat: Chat, is_private: bool, message: Message,
-                        *args) -> bool:
+                        *args):
     """
     This function is called when an interaction makes sense to be started. It is responsible for deciding whether it
     will, which is the case if the command is available for the user's role and the chat is not already having an
@@ -374,8 +344,6 @@ def attempt_interaction(command: c.Command, record: c.ChatRecord, chat: Chat, is
         is_private (bool): whether that chat is private.
         message (telegram.Message): message that the command is sent in.
         args: arguments that will be passed to the interaction besides the record, if it will be started.
-
-    Returns (bool): whether the interaction has been started.
     """
     if record.role >= command.role:
 
@@ -386,7 +354,6 @@ def attempt_interaction(command: c.Command, record: c.ChatRecord, chat: Chat, is
                 i.cl.info(lt.STARTS_NOT_PRIVATELY.format(record.id, command.interaction.__name__))
 
             command.interaction(record, *args)
-            return True
 
         else:  # if the chat is already having an interaction
             i.current[record.id].respond(command.interaction.COMMAND, message)
@@ -395,5 +362,3 @@ def attempt_interaction(command: c.Command, record: c.ChatRecord, chat: Chat, is
         text = command.interaction.UNAVAILABLE_MESSAGE[record.language]
         chat.send_message(text, reply_to_message_id=None if is_private else message.message_id)
         i.cl.info(lt.UNAVAILABLE_COMMAND.format(record.id, command.interaction.COMMAND, record.role))
-
-    return False
