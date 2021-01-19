@@ -102,7 +102,7 @@ NO_STUDENTS_FOUND = (
     ''
 )
 
-# --------------------------------------------------------------------------------------------- registration exceptions
+# ------------------------------------------------------------------------------------------- registration (exceptions)
 
 ALREADY_REGISTERED = (
     '',
@@ -153,7 +153,7 @@ YOU_CONFIRMED = (
     ''
 )
 
-# -------------------------------------------------------------------------------------- leader confirmation exceptions
+# ------------------------------------------------------------------------------------ leader confirmation (exceptions)
 
 ALREADY_LEADER = (
     '',
@@ -285,21 +285,21 @@ NOW_ADMIN = (
     ''
 )
 
-# --------------------------------------------------------------------------------------------- adding admin exceptions
+# ------------------------------------------------------------------------------------------- adding admin (exceptions)
 
 UNAVAILABLE_ADDING_ADMIN = (
     '',
     'UNAVAILABLE_ADDING_ADMIN',
     ''
 )
-NO_GROUPMATES_TO_TRUST = (
-    '',
-    'NO_GROUPMATES_TO_TRUST',
-    ''
-)
 ADMIN_LIMIT_REACHED = (
     '',
     'ADMIN_LIMIT_REACHED',
+    ''
+)
+NO_GROUPMATES_TO_TRUST = (
+    '',
+    'NO_GROUPMATES_TO_TRUST',
     ''
 )
 ONGOING_ADDING_ADMIN = (
@@ -352,7 +352,7 @@ FORMER_NOT_NOTIFIED = (
     ''
 )
 
-# ------------------------------------------------------------------------------------------- removing admin exceptions
+# ----------------------------------------------------------------------------------------- removing admin (exceptions)
 
 UNAVAILABLE_REMOVING_ADMIN = (
     '',
@@ -391,7 +391,7 @@ NO_INFO = (
     ''
 )
 
-# -------------------------------------------------------------------------------------------------------- adding event
+# --------------------------------------------------------------------------------------------- adding event (creating)
 
 FT_ASK_NEW_EVENT = (
     '',
@@ -413,28 +413,8 @@ ASK_DATE = (
     'ASK_DATE',
     ''
 )
-FT_NEW_EVENT = (
-    '',
-    'FT_NEW_EVENT:\n\n{}\n\n{}',
-    ''
-)
-NEW_EVENT = (
-    '',
-    'New event:\n\n{}\n\n{}',
-    ''
-)
-EXPECT_NOTIFICATIONS = (
-    '',
-    'I will notify you',
-    ''
-)
-EXPECT_NO_NOTIFICATIONS = (
-    '',
-    "I won't notify you",
-    ''
-)
 
-# --------------------------------------------------------------------------------------------- adding event exceptions
+# -------------------------------------------------------------------------------- adding event (creating) (exceptions)
 
 UNAVAILABLE_ADDING_EVENT = (
     '',
@@ -496,6 +476,24 @@ INVALID_MINUTE = (
     'INVALID_MINUTE',
     ''
 )
+
+# -------------------------------------------------------------------------------------------- adding event (answering)
+
+ONGOING_ANSWERING_TO_NOTIFY = (
+    '',
+    'ONGOING_ANSWERING_TO_NOTIFY',
+    ''
+)
+FT_NEW_EVENT = (
+    '',
+    'FT_NEW_EVENT:\n\n{}\n\n{}',
+    ''
+)
+NEW_EVENT = (
+    '',
+    'New event:\n\n{}\n\n{}',
+    ''
+)
 ASK_TO_NOTIFY = (
     ('', ''),
     (
@@ -506,6 +504,19 @@ ASK_TO_NOTIFY = (
     ),
     ('', '')
 )
+EXPECT_NOTIFICATIONS = (
+    '',
+    'I will notify you',
+    ''
+)
+EXPECT_NO_NOTIFICATIONS = (
+    '',
+    "I won't notify you",
+    ''
+)
+
+# ------------------------------------------------------------------------------- adding event (answering) (exceptions)
+
 WOULD_EXPECT_NOTIFICATIONS = (
     '',
     'WOULD_EXPECT_NOTIFICATIONS',
@@ -535,7 +546,7 @@ EVENT_CANCELED = (
     ''
 )
 
-# ------------------------------------------------------------------------------------------ canceling event exceptions
+# ---------------------------------------------------------------------------------------- canceling event (exceptions)
 
 ALREADY_NO_EVENTS = (
     '',
@@ -544,17 +555,17 @@ ALREADY_NO_EVENTS = (
 )
 UNAVAILABLE_CANCELING_EVENT = (
     '',
-    'UNAVAILABLE_ADDING_EVENT',
+    'UNAVAILABLE_CANCELING_EVENT',
     ''
 )
 ONGOING_CANCELING_EVENT = (
     '',
-    'ONGOING_ADDING_EVENT',
+    'ONGOING_CANCELING_EVENT',
     ''
 )
 ALREADY_CANCELING_EVENT = (
     '',
-    'ALREADY_ADDING_EVENT',
+    'ALREADY_CANCELING_EVENT',
     ''
 )
 
@@ -576,7 +587,7 @@ NEW_INFO = (
     ''
 )
 
-# --------------------------------------------------------------------------------------- saving information exceptions
+# ------------------------------------------------------------------------------------- saving information (exceptions)
 
 UNAVAILABLE_SAVING_INFO = (
     '',
@@ -617,7 +628,7 @@ INFO_DELETED = (
     ''
 )
 
-# ------------------------------------------------------------------------------------- deleting information exceptions
+# ----------------------------------------------------------------------------------- deleting information (exceptions)
 
 ALREADY_NO_INFO = (
     '',
@@ -663,7 +674,7 @@ INFO_KEPT = (
     ''
 )
 
-# ------------------------------------------------------------------------------------- clearing information exceptions
+# ----------------------------------------------------------------------------------- clearing information (exceptions)
 
 UNAVAILABLE_CLEARING_INFO = (
     '',
@@ -678,6 +689,75 @@ ONGOING_CLEARING_INFO = (
 ALREADY_CLEARING_INFO = (
     '',
     'ALREADY_CLEARING_INFO',
+    ''
+)
+
+# ----------------------------------------------------------------------------------------------------- notifying group
+
+FT_ASK_MESSAGE = (
+    '',
+    'FT_ASK_MESSAGE',
+    ''
+)
+ASK_MESSAGE = (
+    '',
+    'ASK_MESSAGE',
+    ''
+)
+GROUPMATES_NOTIFIED = (
+
+    '',
+    'GROUPMATES_NOTIFIED',
+    ''
+
+)
+
+# ---------------------------------------------------------------------------------------- notifying group (exceptions)
+
+UNAVAILABLE_NOTIFYING_GROUP = (
+    '',
+    'UNAVAILABLE_NOTIFYING_GROUP',
+    ''
+)
+NO_GROUPMATES_TO_NOTIFY = (
+    '',
+    'NO_GROUPMATES_TO_NOTIFY',
+    ''
+)
+ONGOING_NOTIFYING_GROUP = (
+    '',
+    'ONGOING_NOTIFYING_GROUP',
+    ''
+)
+ALREADY_NOTIFYING_GROUP = (
+    '',
+    'ALREADY_NOTIFYING_GROUP',
+    ''
+)
+
+# -------------------------------------------------------------------------------------------------------- asking group
+
+FT_ASK_QUESTION = (
+    '',
+    'ASK_QUESTION',
+    ''
+)
+ASK_QUESTION = (
+    '',
+    'FT_ASK_QUESTION',
+    ''
+)
+
+# ------------------------------------------------------------------------------------------- asking group (exceptions)
+
+UNAVAILABLE_ASKING_GROUP = (
+    '',
+    'UNAVAILABLE_ASKING_GROUP',
+    ''
+)
+NO_GROUPMATES_TO_ASK = (
+    '',
+    'NO_GROUPMATES_TO_ASK',
     ''
 )
 
@@ -704,7 +784,7 @@ NOW_LEADER = (
     ''
 )
 
-# ------------------------------------------------------------------------------------------ changing leader exceptions
+# ---------------------------------------------------------------------------------------- changing leader (exceptions)
 
 UNAVAILABLE_CHANGING_LEADER = (
     '',
@@ -750,7 +830,7 @@ DATA_KEPT = (
     ''
 )
 
-# -------------------------------------------------------------------------------------------- deleting_data exceptions
+# ------------------------------------------------------------------------------------------ deleting_data (exceptions)
 
 LEAVING_IN_GROUPS = (
     '',

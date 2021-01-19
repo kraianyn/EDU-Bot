@@ -104,8 +104,8 @@ class Interaction:
 
     def respond(self, command: str, message: Message):
         """
-        This method makes the bot respond if the user uses a command during the interaction. The response is a reply in
-        non-private chats.
+        This method makes the bot respond if the user uses a command during the interaction. If the command is used on a
+        non-private chat, the response is a reply.
 
         Some interactions are not individual and involve the whole group. When a student is having such interaction, no
         one from the group can start it, neither privately or in the group chat. In case of an attempt to do it, the bot
@@ -159,7 +159,6 @@ class Registration(Interaction):
     def __init__(self, chat_id: int, chat_type: str):
         self.chat_id, self.language = chat_id, None
         super().__init__()
-
         self.is_student = not bool(c.CHAT_TYPES.index(chat_type))
         self.is_first = False  # whether the chat is the first one from the group to be registered
         self.username: str = None
@@ -484,7 +483,6 @@ class LeaderConfirmation(Interaction):
         self.chat_id, self.language = group_chat_record
         self.group_id = record.group_id
         super().__init__()
-
         self.candidate_id = record.id
         self.candidate_username, self.candidate_language = record.username, record.language
         self.poll_message_id: Message = None
@@ -704,7 +702,6 @@ class RemovingAdmin(Interaction):
 
     def __init__(self, record: a.ChatRecord):
         super().__init__(record)
-
         self.admin_id: int = None
         self.admin_username: str = None
         self.admin_language: int = None
@@ -855,7 +852,6 @@ class AddingEvent(Interaction):
 
     def __init__(self, record: a.ChatRecord):
         super().__init__(record)
-
         self.event: str = None
         self.event_log: str = None  # self.event cut to src.logs_text.CUT_LENGTH
         self.date: datetime = None
@@ -903,6 +899,7 @@ class AddingEvent(Interaction):
                 self.update_familiarity(self.chat_id, self.familiarity, new='1')
 
             self.save_event()
+            self.ONGOING_MESSAGE = t.ONGOING_ANSWERING_TO_NOTIFY
             self.notify()
             self.next_action = self.handle_answer
 
@@ -1047,7 +1044,7 @@ class AddingEvent(Interaction):
                 chat_id = int(r[0])
                 current[chat_id] = self  # the student is now answering whether they want to be notified about the event
 
-                msg = t.NEW_EVENT if int(a.Familiarity(*r[3]).answer_notify) else t.FT_NEW_EVENT
+                msg = t.NEW_EVENT if int(a.Familiarity(*r[3]).answer_to_notify) else t.FT_NEW_EVENT
                 self.ask_polar(msg[language].format(event[language], choice(t.ASK_TO_NOTIFY[language])), chat_id)
                 self.num_to_answer += 1
 
@@ -1079,8 +1076,8 @@ class AddingEvent(Interaction):
         language, familiarity = record.language, record.familiarity
 
         # if the user is answering for the first time whether they want to be notified about the event
-        if not int(familiarity.answer_notify):
-            Interaction.update_familiarity(user_id, familiarity, answer_notify='1')
+        if not int(familiarity.answer_to_notify):
+            Interaction.update_familiarity(user_id, familiarity, answer_to_notify='1')
 
         has_passed = self.date < datetime.now()
 
@@ -1111,27 +1108,19 @@ class CancelingEvent(Interaction):
     COMMAND, UNAVAILABLE_MESSAGE, IS_PRIVATE = 'cancel', t.UNAVAILABLE_CANCELING_EVENT, True
     ONGOING_MESSAGE, ALREADY_MESSAGE = t.ONGOING_CANCELING_EVENT, t.ALREADY_CANCELING_EVENT
 
-    def __init__(self, record: a.ChatRecord):
+    def __init__(self, record: a.ChatRecord, events: str):
         super().__init__(record)
         self.events: list[str] = None
 
-        self.ask_event()
+        self.ask_event(events)
         self.next_action = self.delete_event
 
-    def ask_event(self):
+    def ask_event(self, events: str):
         """
         This method makes the bot ask the admin which of the group's upcoming events to cancel. The options
         are provided as inline buttons.
         """
-        connection = connect(c.DATABASE)
-        cursor = connection.cursor()
-        cursor.execute(
-            'SELECT events FROM groups WHERE id = ?',
-            (self.group_id,)
-        )
-        self.events = cursor.fetchone()[0].split('\n')
-        cursor.close()
-        connection.close()
+        self.events = events.split('\n')
 
         events = [  # the group's upcoming events with their weekdays in the admin's language
             [InlineKeyboardButton(f'{t.WEEKDAYS[int(e[0])][self.language]} {e[2:]}', callback_data=str(i))]
@@ -1234,7 +1223,6 @@ class SavingInfo(Interaction):
 
     def __init__(self, record: a.ChatRecord):
         super().__init__(record)
-
         self.info: str = None
 
         msg = t.ASK_NEW_INFO if self.is_familiar else t.FT_ASK_NEW_INFO
@@ -1317,9 +1305,9 @@ class DeletingInfo(Interaction):
     COMMAND, UNAVAILABLE_MESSAGE, IS_PRIVATE = 'delete', t.UNAVAILABLE_DELETING_INFO, True
     ONGOING_MESSAGE, ALREADY_MESSAGE = t.ONGOING_DELETING_INFO, t.ALREADY_DELETING_INFO
 
-    def __init__(self, record: a.ChatRecord):
+    def __init__(self, record: a.ChatRecord, info: str):
         super().__init__(record)
-        self.info: list[str] = None
+        self.info = info.split('\n\n')
 
         self.ask_info()
         self.next_action = self.delete_info
@@ -1329,16 +1317,6 @@ class DeletingInfo(Interaction):
         This method makes the bot ask the admin which piece of their group's saved information to delete. The options
         are provided as inline buttons.
         """
-        connection = connect(c.DATABASE)
-        cursor = connection.cursor()
-        cursor.execute(  # the group's saved info
-            'SELECT info FROM groups WHERE id = ?',
-            (self.group_id,)
-        )
-        self.info = cursor.fetchone()[0].split('\n\n')
-        cursor.close()
-        connection.close()
-
         info = [  # using indices because info can be longer than 64, which is the limit for a callback_data value
             [InlineKeyboardButton(i, callback_data=str(index))] for index, i in enumerate(self.info)
         ]
@@ -1463,6 +1441,43 @@ class ClearingInfo(Interaction):
         cl.info(lt.CLEARS.format(self.chat_id, self.group_id))
 
 
+class NotifyingGroup(Interaction):
+    COMMAND, UNAVAILABLE_MESSAGE, IS_PRIVATE = 'tell', t.UNAVAILABLE_NOTIFYING_GROUP, True
+    ONGOING_MESSAGE, ALREADY_MESSAGE = t.ONGOING_NOTIFYING_GROUP, t.ALREADY_NOTIFYING_GROUP
+
+    def __init__(self, record: a.ChatRecord, num_groupmates: int):
+        super().__init__(record)
+        self.num_sent_to = num_groupmates
+
+        msg = t.ASK_MESSAGE if self.is_familiar else t.FT_ASK_MESSAGE
+        self.send_message(msg[self.language])
+        self.next_action = self.notify
+
+    def notify(self, update: Update):
+        if not self.is_familiar:  # if the leader is notifying their group for the first time
+            self.update_familiarity(self.chat_id, self.familiarity, tell='1')
+
+        connection = connect(c.DATABASE)
+        cursor = connection.cursor()
+        cursor.execute(
+            'SELECT id FROM chats WHERE group_id = ? AND id <> ?',
+            (self.group_id, self.chat_id)
+        )
+        related_records: list[tuple[int]] = cursor.fetchall()
+        cursor.close()
+        connection.close()
+
+        message = update.effective_message
+
+        for r in related_records:
+            message.forward(r[0])
+
+        message_log = message.text if len(message.text) <= lt.CUT_LENGTH else f'{message.text[:lt.CUT_LENGTH - 1]}…'
+        cl.info(lt.NOTIFIES.format(self.chat_id, self.group_id, message_log.replace('\n', ' ')))
+        self.send_message(t.GROUPMATES_NOTIFIED[self.language])
+        self.terminate()
+
+
 # class AskingGroup(Interaction):  # 1 instance for all
 #     COMMAND, UNAVAILABLE_MESSAGE = 'ask', t.UNAVAILABLE_ASKING_GROUP
 #     ALREADY_MESSAGE, ONGOING_MESSAGE = t.ALREADY_ASKING_GROUP, t.ONGOING_ASKING_GROUP
@@ -1516,7 +1531,6 @@ class ChangingLeader(Interaction):
 
     def __init__(self, record: a.ChatRecord):
         super().__init__(record)
-
         self.to_admin = True  # whether the authorities will be given to an admin
 
         self.ask_new_leader()
@@ -1594,7 +1608,7 @@ class ChangingLeader(Interaction):
         connection.commit()
         cursor.close()
         connection.close()
-        cl.info(lt.CHANGES_LEADER.format(self.chat_id, new_leader_id))
+        cl.info(lt.CHANGES_LEADER.format(self.chat_id, new_leader_id, self.group_id))
 
         new_commands = '' if self.to_admin else t.ADMIN_COMMANDS[new_leader_language]
         new_commands += t.LEADER_COMMANDS[new_leader_language]
@@ -1657,7 +1671,7 @@ class DeletingData(Interaction):
         connection = connect(c.DATABASE)
         cursor = connection.cursor()
 
-        cursor.execute(  # number of the group's ordinary students
+        cursor.execute(  # number of the group's students
             'SELECT COUNT(id) FROM chats WHERE group_id = ? AND type = 0',
             (self.group_id,)
         )

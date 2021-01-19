@@ -145,9 +145,12 @@ def adding_admin(record: a.ChatRecord, update: Update):
 
     if (num_admins + 1) / num_students <= c.MAX_ADMINS_STUDENTS_RATIO:  # if adding an admin will not exceed the limit
         attempt_interaction(COMMANDS[i.AddingAdmin.COMMAND], record, chat, is_private, message)
-    else:  # if adding 1 more admin will exceed the limit
+    elif num_students > 1:  # if adding 1 more admin will exceed the limit
         message.reply_text(t.ADMIN_LIMIT_REACHED[record.language], quote=not is_private)
         i.cl.info(lt.TRUST_OVER_LIMIT.format(record.id, num_admins, num_students))
+    else:  # if the leader is the only registered student from the group
+        message.reply_text(t.NO_GROUPMATES_TO_TRUST[record.language], quote=not is_private)
+        i.cl.info(lt.TRUST_WITHOUT_GROUPMATES.format(record.id, record.group_id))
 
 
 def removing_admin(record: a.ChatRecord, update: Update):
@@ -176,7 +179,7 @@ def removing_admin(record: a.ChatRecord, update: Update):
         attempt_interaction(COMMANDS[i.RemovingAdmin.COMMAND], record, chat, is_private, message)
     else:  # if there are no admins in the group
         message.reply_text(t.ALREADY_NO_ADMINS[record.language], quote=not is_private)
-        i.cl.info(lt.DISTRUST_WITHOUT_ADMINS.format(record.id))
+        i.cl.info(lt.DISTRUST_WITHOUT_ADMINS.format(record.id, record.group_id))
 
 
 def connecting_ecampus(record: a.ChatRecord, update: Update):
@@ -219,7 +222,7 @@ def canceling_event(record: a.ChatRecord, update: Update):
     connection.close()
 
     if events:
-        attempt_interaction(COMMANDS[i.CancelingEvent.COMMAND], record, chat, is_private, message)
+        attempt_interaction(COMMANDS[i.CancelingEvent.COMMAND], record, chat, is_private, message, events)
     else:
         message.reply_text(t.ALREADY_NO_EVENTS[record.language], quote=not is_private)
         i.cl.info(lt.CANCEL_WITHOUT_EVENTS.format(record.id, record.group_id))
@@ -262,21 +265,18 @@ def deleting_info(record: a.ChatRecord, update: Update):
     connection.close()
 
     if info:
-        attempt_interaction(COMMANDS[command], record, chat, is_private, message)
+        args = [COMMANDS[command], record, chat, is_private, message]
+        if command == i.DeletingInfo.COMMAND:
+            args.append(info)
+
+        attempt_interaction(*args)
+
     else:
         message.reply_text(t.ALREADY_NO_INFO[record.language], quote=not is_private)
         i.cl.info(lt.DELETE_WITHOUT_INFO.format(record.id, command, record.group_id))
 
 
-def notifying_group(record: a.ChatRecord, update: Update):
-    pass
-
-
-def asking_group(record: a.ChatRecord, update: Update):
-    pass  # kim: refuse to answer
-
-
-def changing_leader(record: a.ChatRecord, update: Update):
+def leader_involving_group(record: a.ChatRecord, update: Update):
     """
     This function is responsible for deciding whether src.interactions.ChangingLeader interaction makes sense to be
     started, which is the case if the leader is not the only registered one from the group. If they are not, an attempt
@@ -286,7 +286,8 @@ def changing_leader(record: a.ChatRecord, update: Update):
     Args: see src.managers.deleting_data.__doc__.
     """
     chat, message = update.effective_chat, update.effective_message
-    is_private = chat.type == Chat.PRIVATE
+    is_private, command = chat.type == Chat.PRIVATE, message.text[1:].removesuffix(USERNAME).lower()
+    is_communicative = command != i.ChangingLeader.COMMAND  # whether the command is /tell or /ask
 
     connection = connect(c.DATABASE)
     cursor = connection.cursor()
@@ -298,11 +299,21 @@ def changing_leader(record: a.ChatRecord, update: Update):
     cursor.close()
     connection.close()
 
-    if num_groupmates:  # if the leader is not the only one registered from the group
-        attempt_interaction(COMMANDS[i.ChangingLeader.COMMAND], record, chat, is_private, message)
-    else:  # if the leader is the only one registered from the group
-        message.reply_text(t.NO_GROUPMATES_FOR_RESIGN[record.language], quote=not is_private)
-        i.cl.info(lt.RESIGN_ALONE.format(record.id))
+    if num_groupmates:  # if the leader is not the only registered one from the group
+        args = [COMMANDS[command], record, chat, is_private, message]
+        if is_communicative:
+            args.append(num_groupmates)
+
+        attempt_interaction(*args)
+
+    else:  # if the leader is the only registered one from the group
+        i.cl.info(lt.INVOLVING_GROUP_ALONE.format(record.id, command, record.group_id))
+
+        if is_communicative:
+            msg = t.NO_GROUPMATES_TO_NOTIFY if command == i.NotifyingGroup.COMMAND else t.NO_GROUPMATES_TO_ASK
+        else:
+            msg = t.NO_GROUPMATES_FOR_RESIGN
+        message.reply_text(msg[record.language], quote=not is_private)
 
 
 def sending_feedback(record: a.ChatRecord, update: Update):
@@ -344,9 +355,9 @@ COMMANDS: dict[str, Command] = {
     'save': Command(saving_info, c.ADMIN_ROLE, i.SavingInfo),
     'delete': Command(deleting_info, c.ADMIN_ROLE, i.DeletingInfo),
     'clear': Command(deleting_info, c.ADMIN_ROLE, i.ClearingInfo),
-    # 'tell': Command(notifying_group, c.LEADER_ROLE, i.NotifyingGroup),
+    'tell': Command(leader_involving_group, c.LEADER_ROLE, i.NotifyingGroup),
     # 'ask': Command(asking_group, c.LEADER_ROLE, i.AskingGroup),
-    'resign': Command(changing_leader, c.LEADER_ROLE, i.ChangingLeader),
+    'resign': Command(leader_involving_group, c.LEADER_ROLE, i.ChangingLeader),
     # 'feedback': Command(sending_feedback, c.ORDINARY_ROLE, i.SendingFeedback),
     'leave': Command(deleting_data, c.ORDINARY_ROLE, i.DeletingData),
 }

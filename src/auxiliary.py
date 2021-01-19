@@ -12,7 +12,8 @@ ChatRecord = namedtuple(
 )
 Familiarity = namedtuple(
     'Familiarity',
-    ('commands', 'trust', 'distrust', 'new', 'cancel', 'answer_notify', 'save', 'delete', 'clear', 'resign', 'leave')
+    ('commands', 'trust', 'distrust', 'new', 'cancel', 'answer_to_notify', 'save', 'delete', 'clear', 'tell', 'ask',
+     'resign', 'leave')
 )
 
 
