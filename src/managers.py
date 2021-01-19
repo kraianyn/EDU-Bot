@@ -1,46 +1,47 @@
 from typing import Union
+from collections import namedtuple
 from sqlite3 import connect
-from auxiliary import get_chat_record
+
+from telegram import Update, Chat, Message
+
 import src.interactions as i
+import src.auxiliary as a
+from src.bot_info import USERNAME
 import src.config as c
 import src.log_text as lt
 import src.text as t
-from bot_info import USERNAME
-from telegram import Update, Chat, Message
 
 
 def registration(update: Update, reply_to_message_id: Union[int, None]):
     """
-    This function is called when a chat uses the command /start. It is responsible for deciding whether
-    src.interactions.Registration interaction will be started, which is the case if the chat is not already registered
-    and is not already registering. Otherwise, the bot sends a message explaining why the interaction cannot be started,
-    which is a reply in non-private chats.
+    This function is responsible for deciding whether src.interactions.Registration interaction will be started, which
+    is the case if the chat is not already registered and is not already registering. Otherwise, the bot sends a
+    message, a reply in non-private chats, explaining why the interaction cannot be started.
 
     Args:
         update (telegram.Update): update received after the command is used.
-        reply_to_message_id (int or None): id of the message that the response will be a reply to. None disables the
-            reply.
+        reply_to_message_id (int or None): id of the message that the response will be sent as a reply to. None disables
+            the reply.
     """
     chat = update.effective_chat
 
-    if not (chat_record := get_chat_record(chat.id)):  # if the chat is not already registered
+    if not (record := a.get_chat_record(chat.id)):  # if the chat is not already registered
         if chat.id not in i.current:  # if the chat is not already registering
             i.Registration(chat.id, chat.type)
         else:  # if the chat is already registering
             i.current[chat.id].respond(i.Registration.COMMAND, update.effective_message)
     else:  # if the chat is already registered
-        chat.send_message(t.ALREADY_REGISTERED[chat_record.language], reply_to_message_id=reply_to_message_id)
+        chat.send_message(t.ALREADY_REGISTERED[record.language], reply_to_message_id=reply_to_message_id)
         i.cl.info(lt.START_BEING_REGISTERED.format(chat.id))
 
 
-def leader_confirmation(record: c.ChatRecord, update: Update):
+def leader_confirmation(record: a.ChatRecord, update: Update):
     """
-    This function is called when a registered user uses the command /claim. It is responsible for deciding whether
-    src.interactions.LeaderConfirmation interaction makes sense to be started. If it does, an attempt to start the
-    interaction is made by calling src.managers.attempt_interaction. Otherwise, the bot sends a message explaining why
-    the interaction cannot be started, which is a reply in non-private chats.
+    This function is responsible for deciding whether src.interactions.LeaderConfirmation interaction makes sense to be
+    started. If it does, an attempt to start the interaction is made by calling src.managers.attempt_interaction.
+    Otherwise, the bot sends a message, a reply in non-private chats, explaining why the interaction cannot be started.
 
-    Args: see src.managers.leaving.__doc__.
+    Args: see src.managers.deleting_data.__doc__.
     """
     chat, message = update.effective_chat, update.effective_message
     is_private = chat.type == Chat.PRIVATE
@@ -78,12 +79,12 @@ def leader_confirmation(record: c.ChatRecord, update: Update):
 
                 is_having = group_chat_record[0] in i.current  # whether the group chat is having an interaction
                 # if the group chat is not having an interaction or the interaction is not leader confirmation
-                if not is_having or not isinstance(current[group_chat_record[0]], i.LeaderConfirmation):
+                if not is_having or not isinstance(i.current[group_chat_record[0]], i.LeaderConfirmation):
                     command = COMMANDS[i.LeaderConfirmation.COMMAND]
                     attempt_interaction(command, record, chat, is_private, message, group_chat_record)
 
                 else:  # if the group chat is having an interaction and the interaction is leader confirmation
-                    interaction = current[group_chat_record[0]]
+                    interaction: i.LeaderConfirmation = i.current[group_chat_record[0]]
 
                     if not interaction.is_candidate(record.id):  # if the candidate's groupmate
                         i.cl.info(lt.CLAIMS_LATE.format(record.id, interaction.candidate_id))
@@ -91,7 +92,7 @@ def leader_confirmation(record: c.ChatRecord, update: Update):
                         text = t.ALREADY_CLAIMED[record.language].format(interaction.candidate_username)
                         message.reply_text(text, quote=not is_private)
                     else:  # if the user is the candidate
-                        interaction.respond(COMMANDS[i.LeaderConfirmation.COMMAND])
+                        interaction.respond(i.LeaderConfirmation.COMMAND, message)
 
             else:  # if there is not enough registered students from the group
                 difference = c.MIN_GROUPMATES_FOR_LEADER_CONFORMATION - num_groupmates
@@ -111,15 +112,15 @@ def leader_confirmation(record: c.ChatRecord, update: Update):
     connection.close()
 
 
-def adding_admin(record: c.ChatRecord, update: Update):
+def adding_admin(record: a.ChatRecord, update: Update):
     """
-    This function is called when a leader uses the command /trust. It is responsible for deciding whether
-    src.interactions.AddingAdmin interaction makes sense to be started, which is the case if adding an will not exceed
-    the maximum ratio of admins to all students in the group, defined as src.config.MAX_ADMINS_STUDENTS_RATIO. If it
-    will not, an attempt to start the interaction is made by calling src.managers.attempt_interaction. Otherwise, the
-    bot sends a message explaining why the interaction cannot be started, which is a reply in non-private chats.
+    This function is responsible for deciding whether src.interactions.AddingAdmin interaction makes sense to be
+    started, which is the case if adding an will not exceed the maximum ratio of admins to all students in the group,
+    defined as src.config.MAX_ADMINS_STUDENTS_RATIO. If it will not, an attempt to start the interaction is made by
+    calling src.managers.attempt_interaction. Otherwise, the bot sends a message, a reply in non-private chats,
+    explaining why the interaction cannot be started.
 
-    Args: see src.managers.leaving.__doc__.
+    Args: see src.managers.deleting_data.__doc__.
     """
     chat, message = update.effective_chat, update.effective_message
     is_private = chat.type == Chat.PRIVATE
@@ -149,15 +150,14 @@ def adding_admin(record: c.ChatRecord, update: Update):
         i.cl.info(lt.TRUST_OVER_LIMIT.format(record.id, num_admins, num_students))
 
 
-def removing_admin(record: c.ChatRecord, update: Update):
+def removing_admin(record: a.ChatRecord, update: Update):
     """
-    This function is called when a leader uses the command /distrust. It is responsible for deciding whether
-    src.interactions.RemovingAdmin interaction makes sense to be started, which is the case if there are admins in the
-    group. If there are, an attempt to start the interaction is made by calling src.managers.attempt_interaction.
-    Otherwise, the bot sends a message explaining why the interaction cannot be started, which is a reply in non-private
-    chats.
+    This function is responsible for deciding whether src.interactions.RemovingAdmin interaction makes sense to be
+    started, which is the case if there are admins in the group. If there are, an attempt to start the interaction is
+    made by calling src.managers.attempt_interaction. Otherwise, the bot sends a message, a reply in non-private chats,
+    explaining why the interaction cannot be started..
 
-    Args: see src.managers.leaving.__doc__.
+    Args: see src.managers.deleting_data.__doc__.
     """
     chat, message = update.effective_chat, update.effective_message
     is_private = chat.type == Chat.PRIVATE
@@ -179,16 +179,16 @@ def removing_admin(record: c.ChatRecord, update: Update):
         i.cl.info(lt.DISTRUST_WITHOUT_ADMINS.format(record.id))
 
 
-def connecting_ecampus(record: c.ChatRecord, update: Update):
+def connecting_ecampus(record: a.ChatRecord, update: Update):
     pass
 
 
-def adding_event(record: c.ChatRecord, update: Update):
+def adding_event(record: a.ChatRecord, update: Update):
     """
-    This function is called when an admin uses the command /new. It is responsible for making an attempt to start
-    src.interactions.AddingEvent interaction by calling src.managers.attempt_interaction.
+    This function is responsible for making an attempt to start src.interactions.AddingEvent interaction by calling
+    src.managers.attempt_interaction.
 
-    Args: see src.managers.leaving.__doc__.
+    Args: see src.managers.deleting_data.__doc__.
     """
     chat = update.effective_chat
     is_private = chat.type == Chat.PRIVATE
@@ -196,16 +196,41 @@ def adding_event(record: c.ChatRecord, update: Update):
     attempt_interaction(COMMANDS[i.AddingEvent.COMMAND], record, chat, is_private, update.effective_message)
 
 
-def canceling_event(record: c.ChatRecord, update: Update):
-    pass
-
-
-def saving_info(record: c.ChatRecord, update: Update):
+def canceling_event(record: a.ChatRecord, update: Update):
     """
-    This function is called when an admin uses the command /save. It is responsible for making an attempt to start
-    src.interactions.SavingInfo interaction by calling src.managers.attempt_interaction.
+    This function is responsible for deciding whether src.interactions.CancelingEvent makes sense to be started, which
+    is the case if the group has upcoming events. If it does, an attempt to start the interaction is made by calling
+    src.managers.attempt_interaction. Otherwise, the bot sends a message, a reply in non-private chats, explaining why
+    the interaction cannot be started.
 
-    Args: see src.managers.leaving.__doc__.
+    Args: see src.managers.deleting_data.__doc__.
+    """
+    chat, message = update.effective_chat, update.effective_message
+    is_private = chat.type = Chat.PRIVATE
+
+    connection = connect(c.DATABASE)
+    cursor = connection.cursor()
+    cursor.execute(
+        'SELECT events FROM groups WHERE id = ?',
+        (record.group_id,)
+    )
+    events = cursor.fetchone()[0]
+    cursor.close()
+    connection.close()
+
+    if events:
+        attempt_interaction(COMMANDS[i.CancelingEvent.COMMAND], record, chat, is_private, message)
+    else:
+        message.reply_text(t.ALREADY_NO_EVENTS[record.language], quote=not is_private)
+        i.cl.info(lt.CANCEL_WITHOUT_EVENTS.format(record.id, record.group_id))
+
+
+def saving_info(record: a.ChatRecord, update: Update):
+    """
+    This function is responsible for making an attempt to start src.interactions.SavingInfo interaction by calling
+    src.managers.attempt_interaction.
+
+    Args: see src.managers.deleting_data.__doc__.
     """
     chat = update.effective_chat
     is_private = chat.type == Chat.PRIVATE
@@ -213,15 +238,15 @@ def saving_info(record: c.ChatRecord, update: Update):
     attempt_interaction(COMMANDS[i.SavingInfo.COMMAND], record, chat, is_private, update.effective_message)
 
 
-def deleting_info(record: c.ChatRecord, update: Update):
+def deleting_info(record: a.ChatRecord, update: Update):
     """
-    This function is called when an admin uses the command /delete or /clear. It is responsible for deciding whether
-    src.interactions.DeletingInfo and src.interactions.ClearingInfo interactions make sense to be started, which is the
-    case if the group's saved information is not empty. If it is not, an attempt to start the appropriate interaction
-    (see src.managers.COMMANDS) is made by calling src.managers.attempt_interaction. Otherwise, the bot sends a message
-    explaining why the interaction cannot be started, which is a reply in non-private chats.
+    This function is responsible for deciding whether src.interactions.DeletingInfo and src.interactions.ClearingInfo
+    interactions make sense to be started, which is the case if the group's saved information is not empty. If it is
+    not, an attempt to start the appropriate interaction (see src.managers.COMMANDS) is made by calling
+    src.managers.attempt_interaction. Otherwise, the bot sends a message, a reply in non-private chats, explaining why
+    the interaction cannot be started.
 
-    Args: see src.managers.leaving.__doc__.
+    Args: see src.managers.deleting_data.__doc__.
     """
     chat, message = update.effective_chat, update.effective_message
     is_private, command = chat.type == Chat.PRIVATE, message.text[1:].removesuffix(USERNAME).lower()
@@ -243,25 +268,24 @@ def deleting_info(record: c.ChatRecord, update: Update):
         i.cl.info(lt.DELETE_WITHOUT_INFO.format(record.id, command, record.group_id))
 
 
-def notifying_group(record: c.ChatRecord, update: Update):
+def notifying_group(record: a.ChatRecord, update: Update):
     pass
 
 
-def asking_group(record: c.ChatRecord, update: Update):
+def asking_group(record: a.ChatRecord, update: Update):
     pass  # kim: refuse to answer
 
 
-def changing_leader(record: c.ChatRecord, update: Update):
+def changing_leader(record: a.ChatRecord, update: Update):
     """
-    This function is called when a leader uses the command /resign. It is responsible for deciding whether
-    src.interactions.ChangingLeader interaction makes sense to be started, which is the case if the leader is not the
-    only registered one from the group. If they are not, an attempt to start the interaction is made by calling
-    src.managers.attempt_interaction. Otherwise, the bot sends a message explaining why the interaction cannot be
-    started, which is a reply in non-private chats.
+    This function is responsible for deciding whether src.interactions.ChangingLeader interaction makes sense to be
+    started, which is the case if the leader is not the only registered one from the group. If they are not, an attempt
+    to start the interaction is made by calling src.managers.attempt_interaction. Otherwise, the bot sends a message, a
+    reply in non-private chats, explaining why the interaction cannot be started.
 
-    Args: see src.managers.leaving.__doc__.
+    Args: see src.managers.deleting_data.__doc__.
     """
-    chat, message, command = update.effective_chat, update.effective_message, COMMANDS[i.ChangingLeader.COMMAND]
+    chat, message = update.effective_chat, update.effective_message
     is_private = chat.type == Chat.PRIVATE
 
     connection = connect(c.DATABASE)
@@ -281,53 +305,54 @@ def changing_leader(record: c.ChatRecord, update: Update):
         i.cl.info(lt.RESIGN_ALONE.format(record.id))
 
 
-def sending_feedback(record: c.ChatRecord, update: Update):
+def sending_feedback(record: a.ChatRecord, update: Update):
     pass
 
 
-def leaving(record: c.ChatRecord, update: Update):
+def deleting_data(record: a.ChatRecord, update: Update):
     """
-    This function is called when a registered user uses the command /leave. It is responsible for determining whether
-    src.interactions.Leaving interaction makes sense to be started, which is the case if the chat is private. If it is,
-    an attempt to start the interaction is made by calling src.managers.attempt_interaction. In non-private chats the
-    bot replies with a message explaining how this command works in such chats.
+    This function is responsible for determining whether src.interactions.DeletingData interaction makes sense to be
+    started, which is the case if the chat is private. If it is, an attempt to start the interaction is made by calling
+    src.managers.attempt_interaction. In non-private chats, the bot replies with a message explaining how this command
+    works in such chats.
 
     Args:
-        record (src.config.ChatRecord): record of the user who is using the command.
+        record (src.auxiliary.ChatRecord): record of the user who is using the command.
         update (telegram.Update): update received after the command is used.
     """
     chat = update.effective_chat
 
     if chat.type == Chat.PRIVATE:
-        attempt_interaction(COMMANDS[i.Leaving.COMMAND], record, chat, True, update.effective_message)
+        attempt_interaction(COMMANDS[i.DeletingData.COMMAND], record, chat, True, update.effective_message)
     else:
         chat.send_message(t.LEAVING_IN_GROUPS[record.language], reply_to_message_id=update.effective_message.message_id)
         i.cl.info(lt.LEAVE_NOT_PRIVATELY.format(record.id, chat.id))
 
 
-COMMANDS: dict[str, c.Command] = {
-    'start': c.Command(registration, c.ORDINARY_ROLE, i.Registration),
-    'claim': c.Command(leader_confirmation, c.ORDINARY_ROLE, i.LeaderConfirmation),
-    'commands': c.Command(i.displaying_commands, c.ORDINARY_ROLE, None),
-    'trust': c.Command(adding_admin, c.LEADER_ROLE, i.AddingAdmin),
-    'distrust': c.Command(removing_admin, c.LEADER_ROLE, i.RemovingAdmin),
-    'events': c.Command(i.displaying_events, c.ORDINARY_ROLE, None),
-    'info': c.Command(i.displaying_info, c.ORDINARY_ROLE, None),
-    # 'campus': c.Command(connecting_ecampus, c.ORDINARY_ROLE, i.ConnectingECampus),
-    'new': c.Command(adding_event, c.ADMIN_ROLE, i.AddingEvent),
-    # 'cancel': c.Command(canceling_event, c.ADMIN_ROLE, i.CancelingEvent),
-    'save': c.Command(saving_info, c.ADMIN_ROLE, i.SavingInfo),
-    'delete': c.Command(deleting_info, c.ADMIN_ROLE, i.DeletingInfo),
-    'clear': c.Command(deleting_info, c.ADMIN_ROLE, i.ClearingInfo),
-    # 'tell': c.Command(notifying_group, c.LEADER_ROLE, i.NotifyingGroup),
-    # 'ask': c.Command(asking_group, c.LEADER_ROLE, i.AskingGroup),
-    'resign': c.Command(changing_leader, c.LEADER_ROLE, i.ChangingLeader),
-    # 'feedback': c.Command(sending_feedback, c.ORDINARY_ROLE, i.SendingFeedback),
-    'leave': c.Command(leaving, c.ORDINARY_ROLE, i.Leaving),
+Command = namedtuple('Command', ('manager', 'role', 'interaction'))
+COMMANDS: dict[str, Command] = {
+    'start': Command(registration, c.ORDINARY_ROLE, i.Registration),
+    'claim': Command(leader_confirmation, c.ORDINARY_ROLE, i.LeaderConfirmation),
+    'commands': Command(i.displaying_commands, c.ORDINARY_ROLE, None),
+    'trust': Command(adding_admin, c.LEADER_ROLE, i.AddingAdmin),
+    'distrust': Command(removing_admin, c.LEADER_ROLE, i.RemovingAdmin),
+    'events': Command(i.displaying_events, c.ORDINARY_ROLE, None),
+    'info': Command(i.displaying_info, c.ORDINARY_ROLE, None),
+    # 'ecampus': Command(connecting_ecampus, c.ORDINARY_ROLE, i.ConnectingECampus),
+    'new': Command(adding_event, c.ADMIN_ROLE, i.AddingEvent),
+    'cancel': Command(canceling_event, c.ADMIN_ROLE, i.CancelingEvent),
+    'save': Command(saving_info, c.ADMIN_ROLE, i.SavingInfo),
+    'delete': Command(deleting_info, c.ADMIN_ROLE, i.DeletingInfo),
+    'clear': Command(deleting_info, c.ADMIN_ROLE, i.ClearingInfo),
+    # 'tell': Command(notifying_group, c.LEADER_ROLE, i.NotifyingGroup),
+    # 'ask': Command(asking_group, c.LEADER_ROLE, i.AskingGroup),
+    'resign': Command(changing_leader, c.LEADER_ROLE, i.ChangingLeader),
+    # 'feedback': Command(sending_feedback, c.ORDINARY_ROLE, i.SendingFeedback),
+    'leave': Command(deleting_data, c.ORDINARY_ROLE, i.DeletingData),
 }
 
 
-def attempt_interaction(command: c.Command, record: c.ChatRecord, chat: Chat, is_private: bool, message: Message,
+def attempt_interaction(command: Command, record: a.ChatRecord, chat: Chat, is_private: bool, message: Message,
                         *args):
     """
     This function is called when an interaction makes sense to be started. It is responsible for deciding whether it
@@ -338,8 +363,8 @@ def attempt_interaction(command: c.Command, record: c.ChatRecord, chat: Chat, is
     chats.
 
     Args:
-        command (src.config.Command): namedtuple that represents the received command.
-        record (src.config.ChatRecord): record of the user who is using the command.
+        command (src.managers.Command): namedtuple that represents the received command.
+        record (src.auxiliary.ChatRecord): record of the user who is using the command.
         chat (telegram.Chat): chat the the command is being used in.
         is_private (bool): whether that chat is private.
         message (telegram.Message): message that the command is sent in.

@@ -40,4 +40,7 @@ AGREES_LATE = '{} agrees to be notified about "{}" after it has passed'
 DISAGREES_LATE = '{} disagrees to be notified about "{}" after it has passed'
 LAST_ANSWERS = 'all students of {} have answered concerning "{}"'
 
-INFO, EVENTS = '{} displays info', '{} displays events'
+CANCEL_WITHOUT_EVENTS = '{} uses /cancel when {} has no events'
+CANCELS = '{} cancels "{}" of events of {}'
+
+INFO, EVENTS = '{} displays saved info', '{} displays upcoming events'

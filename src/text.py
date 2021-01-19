@@ -109,14 +109,14 @@ ALREADY_REGISTERED = (
     'ALREADY_REGISTERED',
     ''
 )
-ALREADY_REGISTRATION = (
-    '',
-    "ALREADY_REGISTRATION",
-    ''
-)
 ONGOING_REGISTRATION = (
     '',
     "[s] ONGOING_REGISTRATION",
+    ''
+)
+ALREADY_REGISTRATION = (
+    '',
+    "ALREADY_REGISTRATION",
     ''
 )
 INVALID_GROUP_NAME = (
@@ -175,14 +175,14 @@ NOT_ENOUGH_FOR_LEADER_CONFIRMATION = (
     '{} groupmate(s) found, {} more needed',
     ''
 )
-ALREADY_LEADER_CONFIRMATION = (
-    '',
-    'ALREADY_LEADER_CONFIRMATION',
-    ''
-)
 ONGOING_LEADER_CONFIRMATION = (
     '',
     'ONGOING_LEADER_CONFIRMATION',
+    ''
+)
+ALREADY_LEADER_CONFIRMATION = (
+    '',
+    'ALREADY_LEADER_CONFIRMATION',
     ''
 )
 CHEATING_IN_LEADER_CONFIRMATION = (
@@ -219,7 +219,7 @@ COMMANDS = (  # these string are meant to be formatted to include non-ordinary c
     'Commands that are available for you:\n\n'
     '/events — see your upcoming events\n'
     '/info — see info your group has saved'
-    '{}'  # possible command for KPI students
+    '{}'  # possible /ecampus
     '{}'  # possible non-ordinary commands
     '\n\n/feedback !— make me better with feedback to my creator\n'
     '/leave — make us strangers again'
@@ -229,14 +229,14 @@ COMMANDS = (  # these string are meant to be formatted to include non-ordinary c
 )
 FT_COMMANDS = (
     '',
-    '\n\nBy the way, when you use a command for the first time, I explain how it works as we go)',
+    '\n\nBy the way, when you use a command for the first time, I explain how it works as we go',
     ''
 )
 ADMIN_COMMANDS = (  # leader commands
     '',
 
     '\n\n/new — add an upcoming event\n'
-    '/cancel !— cancel an upcoming event\n'
+    '/cancel — cancel an upcoming event\n'
     '/save — save some info\n'
     '/delete — delete some info your group has saved\n'
     '/clear — delete all the info your group has saved',
@@ -257,7 +257,7 @@ LEADER_COMMANDS = (  # leader commands
 KPI_CAMPUS_COMMAND = (
     '',
 
-    '\n/campus !— let me let you know when changes happen in your e-campus account',
+    '\n/ecampus !— let me let you know when changes happen in your e-campus account',
 
     ''
 )
@@ -302,14 +302,14 @@ ADMIN_LIMIT_REACHED = (
     'ADMIN_LIMIT_REACHED',
     ''
 )
-ALREADY_ADDING_ADMIN = (
-    '',
-    'ALREADY_ADDING_ADMIN',
-    ''
-)
 ONGOING_ADDING_ADMIN = (
     '',
     'ONGOING_ADDING_ADMIN',
+    ''
+)
+ALREADY_ADDING_ADMIN = (
+    '',
+    'ALREADY_ADDING_ADMIN',
     ''
 )
 
@@ -364,14 +364,14 @@ ALREADY_NO_ADMINS = (
     'ALREADY_NO_ADMINS',
     ''
 )
-ALREADY_REMOVING_ADMIN = (
-    '',
-    'ALREADY_REMOVING_ADMIN',
-    ''
-)
 ONGOING_REMOVING_ADMIN = (
     '',
     'ONGOING_REMOVING_ADMIN',
+    ''
+)
+ALREADY_REMOVING_ADMIN = (
+    '',
+    'ALREADY_REMOVING_ADMIN',
     ''
 )
 
@@ -441,14 +441,14 @@ UNAVAILABLE_ADDING_EVENT = (
     'UNAVAILABLE_ADDING_EVENT',
     ''
 )
-ALREADY_ADDING_EVENT = (
-    '',
-    'ALREADY_ADDING_EVENT',
-    ''
-)
 ONGOING_ADDING_EVENT = (
     '',
     'ONGOING_ADDING_EVENT',
+    ''
+)
+ALREADY_ADDING_EVENT = (
+    '',
+    'ALREADY_ADDING_EVENT',
     ''
 )
 INVALID_EVENT = (
@@ -517,6 +517,47 @@ WOULD_EXPECT_NO_NOTIFICATIONS = (
     ''
 )
 
+# ----------------------------------------------------------------------------------------------------- canceling event
+
+FT_ASK_EVENT = (
+    '',
+    'FT_ASK_EVENT',
+    ''
+)
+ASK_EVENT = (
+    '',
+    'ASK_EVENT',
+    ''
+)
+EVENT_CANCELED = (
+    '',
+    'Canceled:\n\n{}',
+    ''
+)
+
+# ------------------------------------------------------------------------------------------ canceling event exceptions
+
+ALREADY_NO_EVENTS = (
+    '',
+    'ALREADY_NO_EVENTS',
+    ''
+)
+UNAVAILABLE_CANCELING_EVENT = (
+    '',
+    'UNAVAILABLE_ADDING_EVENT',
+    ''
+)
+ONGOING_CANCELING_EVENT = (
+    '',
+    'ONGOING_ADDING_EVENT',
+    ''
+)
+ALREADY_CANCELING_EVENT = (
+    '',
+    'ALREADY_ADDING_EVENT',
+    ''
+)
+
 # -------------------------------------------------------------------------------------------------- saving information
 
 FT_ASK_NEW_INFO = (
@@ -542,14 +583,14 @@ UNAVAILABLE_SAVING_INFO = (
     'UNAVAILABLE_SAVING_INFO',
     ''
 )
-ALREADY_SAVING_INFO = (
-    '',
-    'ALREADY_SAVING_INFO',
-    ''
-)
 ONGOING_SAVING_INFO = (
     '',
     'ONGOING_SAVING_INFO',
+    ''
+)
+ALREADY_SAVING_INFO = (
+    '',
+    'ALREADY_SAVING_INFO',
     ''
 )
 INVALID_INFO = (
@@ -588,14 +629,14 @@ UNAVAILABLE_DELETING_INFO = (
     'UNAVAILABLE_DELETING_INFO',
     ''
 )
-ALREADY_DELETING_INFO = (
-    '',
-    'ALREADY_DELETING_INFO',
-    ''
-)
 ONGOING_DELETING_INFO = (
     '',
     'ONGOING_DELETING_INFO',
+    ''
+)
+ALREADY_DELETING_INFO = (
+    '',
+    'ALREADY_DELETING_INFO',
     ''
 )
 
@@ -629,14 +670,14 @@ UNAVAILABLE_CLEARING_INFO = (
     'UNAVAILABLE_CLEARING_INFO',
     ''
 )
-ALREADY_CLEARING_INFO = (
-    '',
-    'ALREADY_CLEARING_INFO',
-    ''
-)
 ONGOING_CLEARING_INFO = (
     '',
     'ONGOING_CLEARING_INFO',
+    ''
+)
+ALREADY_CLEARING_INFO = (
+    '',
+    'ALREADY_CLEARING_INFO',
     ''
 )
 
@@ -675,18 +716,18 @@ NO_GROUPMATES_FOR_RESIGN = (
     'NO_GROUPMATES',
     ''
 )
-ALREADY_CHANGING_LEADER = (
-    '',
-    'ALREADY_CHANGING_LEADER',
-    ''
-)
 ONGOING_CHANGING_LEADER = (
     '',
     'ONGOING_CHANGING_LEADER',
     ''
 )
+ALREADY_CHANGING_LEADER = (
+    '',
+    'ALREADY_CHANGING_LEADER',
+    ''
+)
 
-# ------------------------------------------------------------------------------------------------------------- leaving
+# ------------------------------------------------------------------------------------------------------- deleting_data
 
 FT_ASK_LEAVING = (
     '',
@@ -709,20 +750,20 @@ DATA_KEPT = (
     ''
 )
 
-# -------------------------------------------------------------------------------------------------- leaving exceptions
+# -------------------------------------------------------------------------------------------- deleting_data exceptions
 
 LEAVING_IN_GROUPS = (
     '',
     'LEAVING_IN_GROUPS',
     ''
 )
-ALREADY_LEAVING = (
-    '',
-    'ALREADY_LEAVING',
-    ''
-)
 ONGOING_LEAVING = (
     '',
     'ONGOING_LEAVING',
+    ''
+)
+ALREADY_LEAVING = (
+    '',
+    'ALREADY_LEAVING',
     ''
 )

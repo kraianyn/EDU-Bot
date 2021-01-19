@@ -1,10 +1,13 @@
 from sqlite3 import connect
-from src.managers import USERNAME, COMMANDS
-from src.auxiliary import get_chat_record
+
+from telegram import Update, Chat
+
 import src.interactions as i
+from src.managers import COMMANDS
+import src.auxiliary as a
+from bot_info import USERNAME
 from src.config import DATABASE, LEADER_ROLE
 from src.log_text import UNAVAILABLE_COMMAND
-from telegram import Update, Chat
 
 
 # ------------------------------------------------------------------------------------------------------- communication
@@ -30,7 +33,7 @@ def command_handler(update: Update, _):
 
     if command_str != i.Registration.COMMAND:  # if the command does not start the registration
 
-        if record := get_chat_record(update.effective_user.id):  # if the chat is registered
+        if record := a.get_chat_record(update.effective_user.id):  # if the chat is registered
             try:
                 command = COMMANDS[command_str]
             except KeyError:  # if the message contains text other than the command

@@ -1,7 +1,19 @@
 from datetime import datetime
 from typing import Union
+from collections import namedtuple
 from sqlite3 import connect
-from src.config import DATABASE, ChatRecord, Familiarity
+
+from src.config import DATABASE
+
+
+ChatRecord = namedtuple(
+    'ChatRecord',
+    ('id', 'type', 'username', 'language', 'group_id', 'role', 'familiarity', 'registered')
+)
+Familiarity = namedtuple(
+    'Familiarity',
+    ('commands', 'trust', 'distrust', 'new', 'cancel', 'answer_notify', 'save', 'delete', 'clear', 'resign', 'leave')
+)
 
 
 def get_chat_record(chat_id: int) -> Union[ChatRecord, None]:
@@ -11,7 +23,7 @@ def get_chat_record(chat_id: int) -> Union[ChatRecord, None]:
     Args:
         chat_id (int): id of the chat that record will be returned of.
 
-    Returns (src.config.ChatRecord or None): record of the chat with the given id. None if the record is not found.
+    Returns (src.auxiliary.ChatRecord or None): record of the chat with the given id. None if the record is not found.
     """
     connection = connect(DATABASE)
     cursor = connection.cursor()
@@ -59,11 +71,11 @@ def str_to_datetime(string: str) -> datetime:
     Args:
         string (str): string containing date in the format according to src.config.DATE_PATTERN.
     """
-    day, month, hour, minute = int(string[2:4]), int(string[5:7]), 23, 59
+    day, month, hour, minute = int(string[2:4]), int(string[5:7]), 0, 0
     if string[7] == ',':  # if the event contains time
         hour, minute = int(string[9:11]), int(string[12:14])
 
-    now = datetime.today()
+    now = datetime.now()
     date_this_year = datetime(now.year, month, day, hour, minute)
 
     return date_this_year if date_this_year > now else datetime(now.year + 1, month, day, hour, minute)
