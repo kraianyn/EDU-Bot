@@ -1,4 +1,5 @@
 from re import compile
+
 from telegram import Chat
 
 BOT_LOG, BOT_LOG_FORMAT = '../log/bot.log', '%(levelname)s | %(asctime)s.%(msecs)d | %(name)s | %(message)s'
@@ -12,7 +13,7 @@ ORDINARY_ROLE, ADMIN_ROLE, LEADER_ROLE = 0, 1, 2
 DATABASE = '../memory.db'
 STATIC_INITIAL_STUDENT = (
     ORDINARY_ROLE,  # role in the group
-    '0000000000000'  # familiarity with the bot's commands (interactions) according to src.auxiliary.Familiarity fields
+    '00000000000000'  # familiarity with the bot's interactions according to src.auxiliary.Familiarity fields
 )
 KPI_ID = 100
 

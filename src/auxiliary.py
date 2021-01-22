@@ -13,18 +13,17 @@ ChatRecord = namedtuple(
 Familiarity = namedtuple(
     'Familiarity',
     ('commands', 'trust', 'distrust', 'new', 'cancel', 'answer_to_notify', 'save', 'delete', 'clear', 'tell', 'ask',
-     'resign', 'leave')
+     'answer', 'resign', 'leave')
 )
 
 
 def get_chat_record(chat_id: int) -> Union[ChatRecord, None]:
     """
-    This function looks for record of the chat with the given id in the database.
-
     Args:
         chat_id (int): id of the chat that record will be returned of.
 
-    Returns (src.auxiliary.ChatRecord or None): record of the chat with the given id. None if the record is not found.
+    Returns (src.auxiliary.ChatRecord or None): record of the chat with the given id. None if the chat is not
+        registered.
     """
     connection = connect(DATABASE)
     cursor = connection.cursor()

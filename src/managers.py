@@ -278,10 +278,11 @@ def deleting_info(record: a.ChatRecord, update: Update):
 
 def leader_involving_group(record: a.ChatRecord, update: Update):
     """
-    This function is responsible for deciding whether src.interactions.ChangingLeader interaction makes sense to be
-    started, which is the case if the leader is not the only registered one from the group. If they are not, an attempt
-    to start the interaction is made by calling src.managers.attempt_interaction. Otherwise, the bot sends a message, a
-    reply in non-private chats, explaining why the interaction cannot be started.
+    This function is responsible for deciding whether src.interactions.ChangingLeader, src.interactions.NotifyingGroup,
+    and src.interactions.AskingGroup interactions make sense to be started, which is the case if the leader is not the
+    only registered student from the group. If they are not, an attempt to start the appropriate interaction is made by
+    calling src.managers.attempt_interaction. Otherwise, the bot sends a message, a reply in non-private chats,
+    explaining why the interaction cannot be started.
 
     Args: see src.managers.deleting_data.__doc__.
     """
@@ -300,18 +301,19 @@ def leader_involving_group(record: a.ChatRecord, update: Update):
     connection.close()
 
     if num_groupmates:  # if the leader is not the only registered one from the group
-        args = [COMMANDS[command], record, chat, is_private, message]
-        if is_communicative:
-            args.append(num_groupmates)
 
-        attempt_interaction(*args)
+        if command == i.AskingGroup.COMMAND and record.group_id in i.AskingGroup.ongoing:
+            message.reply_text(t.ONGOING_GROUP_ANSWERING[record.language], quote=not is_private)
+            return
+
+        attempt_interaction(COMMANDS[command], record, chat, is_private, message)
 
     else:  # if the leader is the only registered one from the group
         i.cl.info(lt.INVOLVING_GROUP_ALONE.format(record.id, command, record.group_id))
 
-        if is_communicative:
+        if is_communicative:  # if the command is /tell or /ask
             msg = t.NO_GROUPMATES_TO_NOTIFY if command == i.NotifyingGroup.COMMAND else t.NO_GROUPMATES_TO_ASK
-        else:
+        else:  # if the command is /resign
             msg = t.NO_GROUPMATES_FOR_RESIGN
         message.reply_text(msg[record.language], quote=not is_private)
 
@@ -356,7 +358,7 @@ COMMANDS: dict[str, Command] = {
     'delete': Command(deleting_info, c.ADMIN_ROLE, i.DeletingInfo),
     'clear': Command(deleting_info, c.ADMIN_ROLE, i.ClearingInfo),
     'tell': Command(leader_involving_group, c.LEADER_ROLE, i.NotifyingGroup),
-    # 'ask': Command(asking_group, c.LEADER_ROLE, i.AskingGroup),
+    'ask': Command(leader_involving_group, c.LEADER_ROLE, i.AskingGroup),
     'resign': Command(leader_involving_group, c.LEADER_ROLE, i.ChangingLeader),
     # 'feedback': Command(sending_feedback, c.ORDINARY_ROLE, i.SendingFeedback),
     'leave': Command(deleting_data, c.ORDINARY_ROLE, i.DeletingData),

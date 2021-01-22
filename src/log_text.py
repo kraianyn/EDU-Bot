@@ -43,6 +43,6 @@ LAST_ANSWERS = 'all students of {} have answered concerning "{}"'
 CANCEL_WITHOUT_EVENTS, CANCELS = '{} uses /cancel when {} has no events', '{} cancels "{}" of events of {}'
 
 NOTIFIES, ASKS = '{} notifies students of {} with "{}"', '{} asks students of {} "{}"'
-ANSWERS, REFUSES = '{} answers "{}"', '{} refuses to answer '
+ANSWERS, REFUSES = '{} asked "{}"', '{} refuses to answer '
 
 INFO, EVENTS = '{} displays saved info', '{} displays upcoming events'

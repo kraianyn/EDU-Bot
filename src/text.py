@@ -704,12 +704,15 @@ ASK_MESSAGE = (
     'ASK_MESSAGE',
     ''
 )
-GROUPMATES_NOTIFIED = (
-
+GROUP_NOTIFICATION = (
     '',
-    'GROUPMATES_NOTIFIED',
+    '{} asked me to send this to everyone in your group:',
     ''
-
+)
+GROUP_NOTIFIED = (
+    '',
+    'GROUP_NOTIFIED {}',
+    ''
 )
 
 # ---------------------------------------------------------------------------------------- notifying group (exceptions)
@@ -739,12 +742,88 @@ ALREADY_NOTIFYING_GROUP = (
 
 FT_ASK_QUESTION = (
     '',
-    'ASK_QUESTION',
+    'FT_ASK_QUESTION',
     ''
 )
 ASK_QUESTION = (
     '',
-    'FT_ASK_QUESTION',
+    'ASK_QUESTION',
+    ''
+)
+FT_ASK_TO_PUBLISH = (
+    '',
+    'FT_ASK_TO_PUBLISH',
+    ''
+)
+ASK_TO_PUBLISH = (
+    '',
+    'ASK_TO_PUBLISH',
+    ''
+)
+FT_ASK_ANSWER = (
+    '',
+    'FT_ASK_ANSWER {}',
+    ''
+)
+ASK_ANSWER = (
+    '',
+    'ASK_ANSWER {}',
+    ''
+)
+PUBLIC_ANSWER = (
+    '',
+    ' {} made the answers public, so all the answers can be seen in the group chat.',
+    ''
+)
+PRIVATE_ANSWER = (
+    '',
+    " {} didn't make the answers public, so they are the only person who will be able to see your answer."
+    ''
+)
+ASK_LEADER_ANSWER = (
+    '',
+    'ASK_LEADER_ANSWER',
+    ''
+)
+REFUSE_TO_ANSWER = (
+    '',
+    'REFUSE_TO_ANSWER',
+    ''
+)
+ANSWER_LIST = '"{}"{}{}{}'
+ANSWERED = (
+    '',
+    '\n\nAnswers:\n\n{}',
+    ''
+)
+REFUSED = (
+    '',
+    '\n\nRefused to answer:\n{}',
+    ''
+)
+ASKED = (
+    '',
+    '\n\nNo response:\n{}',
+    ''
+)
+ONGOING_ANSWERING = (
+    '',
+    'ONGOING_ANSWERING',
+    ''
+)
+ANSWER_SENT = (
+    '',
+    'ANSWER_SENT',
+    ''
+)
+REFUSAL_SENT = (
+    '',
+    'REFUSAL_SENT',
+    ''
+)
+ALL_ANSWERED = (
+    '',
+    'ALL_ANSWERED "{}"',
     ''
 )
 
@@ -758,6 +837,21 @@ UNAVAILABLE_ASKING_GROUP = (
 NO_GROUPMATES_TO_ASK = (
     '',
     'NO_GROUPMATES_TO_ASK',
+    ''
+)
+ONGOING_GROUP_ANSWERING = (
+    '',
+    'ONGOING_GROUP_ANSWERING',
+    ''
+)
+ONGOING_ASKING_GROUP = (
+    '',
+    'ONGOING_ASKING_GROUP',
+    ''
+)
+ALREADY_ASKING_GROUP = (
+    '',
+    'ALREADY_ASKING_GROUP',
     ''
 )
 
@@ -807,7 +901,7 @@ ALREADY_CHANGING_LEADER = (
     ''
 )
 
-# ------------------------------------------------------------------------------------------------------- deleting_data
+# ------------------------------------------------------------------------------------------------------- deleting data
 
 FT_ASK_LEAVING = (
     '',
@@ -830,7 +924,7 @@ DATA_KEPT = (
     ''
 )
 
-# ------------------------------------------------------------------------------------------ deleting_data (exceptions)
+# ------------------------------------------------------------------------------------------ deleting data (exceptions)
 
 LEAVING_IN_GROUPS = (
     '',

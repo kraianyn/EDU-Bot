@@ -70,17 +70,18 @@ class Interaction:
         current[self.chat_id] = self
         cl.info(lt.STARTS.format(self.chat_id, type(self).__name__))
 
-    def send_message(self, *args, **kwargs):
+    def send_message(self, *args, **kwargs) -> Message:
         """
         This method makes the bot send a message to the chat.
-        """
-        BOT.send_message(self.chat_id, *args, **kwargs)
 
-    def ask_polar(self, question: str, specifier: Union[CallbackQuery, int] = None):
+        # todo
+        """
+        return BOT.send_message(self.chat_id, *args, **kwargs)
+
+    def ask_polar(self, question: str, specifier: Union[int, CallbackQuery] = None) -> Message:
         """
         This method makes the bot ask the chat a polar (general) question. The options are provided as two inline
         buttons.
-
         Args:
             question (str): text of the message that will be sent.
             specifier (telegram.CallbackQuery or int, optional): If a callback query is given, the question will be
@@ -94,17 +95,16 @@ class Interaction:
         ]
         markup = InlineKeyboardMarkup(answers)
 
-        if not specifier:
-            self.send_message(question, reply_markup=markup)
-        else:
-            try:
-                specifier.message.edit_text(question, reply_markup=markup)
-            except AttributeError:  # if the specifier is a chat id, not a callback query
-                BOT.send_message(specifier, question, reply_markup=markup)
+        try:
+            return BOT.send_message(specifier, question, reply_markup=markup)
+        except BadRequest:  # if the specifier is not given
+            return self.send_message(question, reply_markup=markup)
+        except TypeError:  # if the specifier is a callback query
+            return specifier.message.edit_text(question, reply_markup=markup)
 
     def respond(self, command: str, message: Message):
         """
-        This method makes the bot respond if the user uses a command during the interaction. If the command is used on a
+        This method makes the bot respond if the user uses a command during the interaction. If the command is used in a
         non-private chat, the response is a reply.
 
         Some interactions are not individual and involve the whole group. When a student is having such interaction, no
@@ -123,7 +123,7 @@ class Interaction:
     @staticmethod
     def update_familiarity(user_id: int, familiarity: a.Familiarity, **kwargs):
         """
-        This method updates the user's familiarity with the bot's commands (interactions).
+        This method updates the user's familiarity with the bot's interactions.
 
         Args:
             user_id (int): id of the user that familiarity will be updated of.
@@ -171,7 +171,7 @@ class Registration(Interaction):
         This method makes the bot ask the chat their language. The options are provided as inline buttons.
         """
         languages = [
-            [InlineKeyboardButton(l, callback_data=str(i)) for i, l in enumerate(c.LANGUAGES)]
+            [InlineKeyboardButton(language, callback_data=str(index)) for index, language in enumerate(c.LANGUAGES)]
         ]
         markup = InlineKeyboardMarkup(languages)
 
@@ -193,20 +193,29 @@ class Registration(Interaction):
         except AttributeError:  # if the update is not caused by choosing the language
             return  # no response
 
+        cities = [
+            [InlineKeyboardButton(city, callback_data=city)] for city in self.get_cities()
+        ]
+        markup = InlineKeyboardMarkup(cities)
+        query.message.edit_text(t.ASK_CITY[self.is_student][self.language], reply_markup=markup)
+        self.next_action = self.ask_edu
+
+    @staticmethod
+    def get_cities() -> list[str]:
+        """
+        Returns (list[str]): sorted list of all cities in the database.
+        """
         connection = connect(c.DATABASE)
         cursor = connection.cursor()
-        cursor.execute('SELECT DISTINCT city FROM EDUs')  # cities that there are EDUs in
-        cities: list[tuple[str]] = sorted(cursor.fetchall(), key=lambda city: a.string_sort_key(city[0]))
+
+        cursor.execute('SELECT DISTINCT city FROM EDUs')
+        cities: list[str] = [city[0] for city in cursor.fetchall()]
+
         cursor.close()
         connection.close()
 
-        cities = [
-            [InlineKeyboardButton(c[0], callback_data=c[0])] for c in cities
-        ]
-        markup = InlineKeyboardMarkup(cities)
-
-        query.message.edit_text(t.ASK_CITY[self.is_student][self.language], reply_markup=markup)
-        self.next_action = self.ask_edu
+        cities.sort(key=a.string_sort_key)
+        return cities
 
     def ask_edu(self, update: Update):
         """
@@ -224,23 +233,34 @@ class Registration(Interaction):
         except AttributeError:  # if the update is not caused by choosing the city
             return  # no response
 
-        connection = connect(c.DATABASE)
-        cursor = connection.cursor()
-        cursor.execute(  # records of EDUs in the chosen city
-            'SELECT id, name FROM EDUs WHERE city = ?',
-            (city,)
-        )
-        edus: list[tuple[int, str]] = sorted(cursor.fetchall(), key=lambda e: a.string_sort_key(e[1]))
-        cursor.close()
-        connection.close()
-
         edus = [
-            [InlineKeyboardButton(e[1], callback_data=e[0])] for e in edus
+            [InlineKeyboardButton(name, callback_data=edu_id)] for edu_id, name in self.get_edus(city)
         ]
         markup = InlineKeyboardMarkup(edus)
 
         query.message.edit_text(t.ASK_EDU[self.language], reply_markup=markup)
         self.next_action = self.ask_department
+
+    @staticmethod
+    def get_edus(city: str) -> list[tuple[int, str]]:
+        """
+        Returns (list[tuple[int, str]]): EDUs in the given city, sorted by their name. Namely, list of tuples containing
+            the EDUs id and full name.
+        """
+        connection = connect(c.DATABASE)
+        cursor = connection.cursor()
+
+        cursor.execute(  # records of EDUs in the chosen city
+            'SELECT id, name FROM EDUs WHERE city = ?',
+            (city,)
+        )
+        edus: list[tuple[int, str]] = cursor.fetchall()
+
+        cursor.close()
+        connection.close()
+
+        edus.sort(key=lambda e: a.string_sort_key(e[1]))
+        return edus
 
     def ask_department(self, update: Update):
         """
@@ -259,23 +279,32 @@ class Registration(Interaction):
         except AttributeError:  # if the update is not caused by choosing the EDU
             return  # no response
 
-        connection = connect(c.DATABASE)
-        cursor = connection.cursor()
-        cursor.execute(  # departments of the chosen EDU
-            'SELECT departments FROM EDUs WHERE id = ?',
-            (self.group_id,)
-        )
-        departments = cursor.fetchone()[0].split()  # departments are stored sorted in the database
-        cursor.close()
-        connection.close()
-
         departments = [
-            [InlineKeyboardButton(d, callback_data=str(i))] for i, d in enumerate(departments)
+            [InlineKeyboardButton(name, callback_data=str(department_id))]
+            for department_id, name in enumerate(self.get_departments())
         ]
         markup = InlineKeyboardMarkup(departments)
 
         query.message.edit_text(t.ASK_DEPARTMENT[self.language], reply_markup=markup)
         self.next_action = self.ask_group_name
+
+    def get_departments(self) -> list[str]:
+        """
+        Returns (list[str]): sorted list of departments of the chosen EDU.
+        """
+        connection = connect(c.DATABASE)
+        cursor = connection.cursor()
+
+        cursor.execute(  # departments of the chosen EDU
+            'SELECT departments FROM EDUs WHERE id = ?',
+            (self.group_id,)
+        )
+        departments: str = cursor.fetchone()[0]  # departments are stored sorted in the database
+
+        cursor.close()
+        connection.close()
+
+        return departments.split()
 
     def ask_group_name(self, update: Update):
         """
@@ -336,30 +365,37 @@ class Registration(Interaction):
         Args:
             group_name (str): the given group name, converted to uppercase.
         """
-        connection = connect(c.DATABASE)
-        cursor = connection.cursor()
-        cursor.execute(  # groups of the chosen department of the chosen EDU
-            'SELECT id, name FROM groups WHERE id / 1000 = ?',
-            (self.group_id,)
-        )
-        department_group_records = cursor.fetchall()
-        cursor.close()
-        connection.close()
+        department_group_records = self.get_department_group_records()
 
         if department_group_records:  # if the chat is not the first one from the department to be registered
 
-            for dgr in department_group_records:
-                if dgr[1] == group_name:  # if the chat is not the first one from the group to be registered
-                    self.group_id = dgr[0]  # taking id of the group
+            for group_id, name in department_group_records:
+                if name == group_name:  # if the chat is not the first one from the group to be registered
+                    self.group_id = group_id  # taking id of the group
                     break
             else:  # if the chat is the first one from the group to be registered
-                self.group_id = department_group_records[-1][0] + 1
+                self.group_id = group_id + 1
                 self.is_first = True
 
         else:  # if the chat is the first one from the department to be registered
             self.group_id *= 1000  # 1000 = 10^3, where 3 is how long a group id within a department (to be added) is
             self.is_first = True
             # the first group to be registered of a department has index 0 within the department
+
+    def get_department_group_records(self) -> list[tuple[int, str]]:
+        connection = connect(c.DATABASE)
+        cursor = connection.cursor()
+
+        cursor.execute(  # groups of the chosen department of the chosen EDU
+            'SELECT id, name FROM groups WHERE id / 1000 = ?',
+            (self.group_id,)
+        )
+        department_group_records: list[tuple[int, str]] = cursor.fetchall()
+
+        cursor.close()
+        connection.close()
+
+        return department_group_records
 
     def create_record(self, update: Update, registered_at: str, group_name: str):
         """
@@ -368,7 +404,7 @@ class Registration(Interaction):
         full name or first name for private chats, with title for others), language index (according to
         src.config.LANGUAGES), id of the group that it is related to, time when the chat has finished the registration.
         For private chats, also are included src.config.STATIC_INITIAL_STUDENT values of the chat's role in the group
-        and familiarity with the bot's commands (interactions).
+        and familiarity with the bot's interactions.
 
         If the chat is the first one from the group to be registered, a new record for the group is also created, saving
         its id and name.
@@ -441,7 +477,7 @@ class Registration(Interaction):
                 'SELECT id FROM chats WHERE group_id = ? AND type <> 0',
                 (self.group_id,)
             )
-            group_chat_records: list[tuple[int]] = cursor.fetchall()
+            group_chat_records: tuple[int] = tuple(r[0] for r in cursor.fetchall())
             num_group_chats = len(group_chat_records)
 
             if num_groupmates:  # if at least 1 of the groupmates has registered
@@ -452,16 +488,15 @@ class Registration(Interaction):
             else:  # if at least 1 group chat has been registered
                 text = t.GROUP_CHATS_FOUND[self.language].format(num_group_chats)
 
-            for gcr in group_chat_records:
-                BOT.send_message(gcr[0], choice(t.NEW_GROUPMATE[self.language]).format(self.username))
+            for chat_id in group_chat_records:
+                BOT.send_message(chat_id, choice(t.NEW_GROUPMATE[self.language]).format(self.username))
 
         else:  # if the new chat is a chat of a group
             cursor.execute(  # the group's students
                 'SELECT username FROM chats WHERE group_id = ? AND type = 0',
                 (self.group_id,)
             )
-            student_records = cursor.fetchall()
-            student_usernames = tuple(sr[0] for sr in student_records)
+            student_usernames = tuple(r[0] for r in cursor.fetchall())
 
             text = t.STUDENTS_FOUND[self.language].format(len(student_usernames), '\n'.join(student_usernames))
 
@@ -569,8 +604,8 @@ class LeaderConfirmation(Interaction):
 
         else:
             cl.info(lt.NOT_CONFIRMED.format(self.candidate_id, self.group_id))
-            for i, l in self.late_claimers:
-                BOT.send_message(i, t.CANDIDATE_NOT_CONFIRMED[l].format(self.candidate_username))
+            for user_id, language in self.late_claimers:
+                BOT.send_message(user_id, t.CANDIDATE_NOT_CONFIRMED[language].format(self.candidate_username))
 
             return False
 
@@ -639,22 +674,35 @@ class AddingAdmin(Interaction):
         This method makes the bot ask the leader which of their group's ordinary students to make an admin. The options
         are provided as inline buttons.
         """
+        ordinary_students = [
+            [InlineKeyboardButton(username, callback_data=f'{user_id} {username} {language}')]
+            for user_id, username, language in self.get_ordinary_records()
+        ]
+        markup = InlineKeyboardMarkup(ordinary_students)
+
+        msg = t.ASK_NEW_ADMIN if self.is_familiar else t.FT_ASK_NEW_ADMIN
+        self.send_message(msg[self.language], reply_markup=markup)
+
+    def get_ordinary_records(self) -> list[tuple[int, str, int]]:
+        """
+        Returns (list[tuple[int, str, int]]): the group's ordinary students, sorted by their usernames or other
+            identifiers. Namely, list of tuples containing the student's telegram id, username or other identifier, and
+            language.
+        """
         connection = connect(c.DATABASE)
         cursor = connection.cursor()
+
         cursor.execute(  # the group's ordinary students
-            'SELECT id, username, language FROM chats WHERE group_id = ? AND role = 0 AND type = 0',
+            'SELECT id, username, language FROM chats WHERE group_id = ? AND role = 0',
             (self.group_id,)
         )
-        ordinary_records: list[tuple[int, str, int]] = sorted(cursor.fetchall(), key=lambda r: a.string_sort_key(r[1]))
+        ordinary_records: list[tuple[int, str, int]] = cursor.fetchall()
+
         cursor.close()
         connection.close()
 
-        ordinary_students = [
-            [InlineKeyboardButton(r[1], callback_data=f'{r[0]} {r[1]} {r[2]}')] for r in ordinary_records
-        ]
-        markup = InlineKeyboardMarkup(ordinary_students)
-        msg = t.ASK_NEW_ADMIN if self.is_familiar else t.FT_ASK_NEW_ADMIN
-        self.send_message(msg[self.language], reply_markup=markup)
+        ordinary_records.sort(key=lambda r: a.string_sort_key(r[1]))
+        return ordinary_records
 
     def add_admin(self, update: Update):
         """
@@ -714,22 +762,34 @@ class RemovingAdmin(Interaction):
         This method makes the bot ask the leader which admin of their group to make an ordinary student. The options are
         provided as inline buttons.
         """
+        admins = [
+            [InlineKeyboardButton(username, callback_data=f'{user_id} {username} {language}')]
+            for user_id, username, language in self.get_admin_records()
+        ]
+        markup = InlineKeyboardMarkup(admins)
+
+        msg = t.ASK_ADMIN if self.is_familiar else t.FT_ASK_ADMIN
+        self.send_message(msg[self.language], reply_markup=markup)
+
+    def get_admin_records(self) -> list[tuple[int, str, int]]:
+        """
+        Returns (list[tuple[int, str, int]]): the group's admins, sorted by their usernames or other identifiers.
+            Namely, list of tuples containing the admin's telegram id, username or other identifier, and language.
+        """
         connection = connect(c.DATABASE)
         cursor = connection.cursor()
+
         cursor.execute(  # the group's admins
             'SELECT id, username, language FROM chats WHERE group_id = ? AND role = 1',
             (self.group_id,)
         )
-        admin_records: list[tuple[int, str, int]] = sorted(cursor.fetchall(), key=lambda r: a.string_sort_key(r[1]))
+        admin_records: list[tuple[int, str, int]] = cursor.fetchall()
+
         cursor.close()
         connection.close()
 
-        admins = [
-            [InlineKeyboardButton(r[1], callback_data=f'{r[0]} {r[1]} {r[2]}')] for r in admin_records
-        ]
-        markup = InlineKeyboardMarkup(admins)
-        msg = t.ASK_ADMIN if self.is_familiar else t.FT_ASK_ADMIN
-        self.send_message(msg[self.language], reply_markup=markup)
+        admin_records.sort(key=lambda r: a.string_sort_key(r[1]))
+        return admin_records
 
     def remove_admin(self, update: Update):
         """
@@ -815,7 +875,7 @@ def displaying_events(record: a.ChatRecord, update: Update):
     connection.close()
 
     try:
-        events = tuple(f'{t.WEEKDAYS[int(e[0])][record.language]} {e[2:]}' for e in events.split('\n'))
+        events = tuple(f'{t.WEEKDAYS[int(event[0])][record.language]} {event[2:]}' for event in events.split('\n'))
     except AttributeError:  # if there are no upcoming events
         events = t.NO_EVENTS[record.language]
     else:
@@ -899,7 +959,7 @@ class AddingEvent(Interaction):
                 self.update_familiarity(self.chat_id, self.familiarity, new='1')
 
             self.save_event()
-            self.ONGOING_MESSAGE = t.ONGOING_ANSWERING_TO_NOTIFY
+            self.ONGOING_MESSAGE = self.ALREADY_MESSAGE = t.ONGOING_ANSWERING_TO_NOTIFY
             self.notify()
             self.next_action = self.handle_answer
 
@@ -1000,7 +1060,7 @@ class AddingEvent(Interaction):
             updated_events = f'{self.event}'
         else:
             num_events = len(events)
-            for i in range(num_events):
+            for i in range(num_events):  # todo: not manual sort?
                 if self.date > a.str_to_datetime(events[num_events - i - 1]):  # if the new event is later
                     events.insert(num_events - i, self.event)
                     break
@@ -1025,35 +1085,45 @@ class AddingEvent(Interaction):
         notification about the new event to chats that are related to the admin's group. Each student is also asked
         whether they want the bot to send them reminders about the event.
         """
+        related_records = self.get_related_records()
+
+        # the event with the weekday in each language
+        event = tuple(f'{t.WEEKDAYS[self.weekday_index][index]} {self.event[2:]}' for index in range(len(c.LANGUAGES)))
+        for chat_id, chat_type, language, familiarity in related_records:
+
+            if not t:  # if the record is of a private chat
+                current[chat_id] = self  # the student is now answering whether they want to be notified about the event
+                self.num_to_answer += 1
+
+                msg = t.NEW_EVENT if int(a.Familiarity(*familiarity).answer_to_notify) else t.FT_NEW_EVENT
+                self.ask_polar(msg[language].format(event[language], choice(t.ASK_TO_NOTIFY[language])), chat_id)
+
+            else:  # if the record is of a non-private chat
+                BOT.send_message(chat_id, t.NEW_EVENT[language].format(event[language], ''))
+
+    def get_related_records(self) -> list[tuple[int, int, int, str]]:
+        """
+        Returns (list[tuple[int, int, int, str]]): chats that are related to the admin's group. Namely, list of tuples
+            containing the chat's telegram id, type, language, and familiarity with the bot's interactions as an
+            argument for src.auxiliary.Familiarity.
+        """
         connection = connect(c.DATABASE)
         cursor = connection.cursor()
+
         cursor.execute(  # chats related to the group
             'SELECT id, type, language, familiarity FROM chats WHERE group_id = ?',
             (self.group_id,)
         )
         related_records: list[tuple[int, int, int, str]] = cursor.fetchall()
+
         cursor.close()
         connection.close()
 
-        # the event with the weekday on each language
-        event = tuple(f'{t.WEEKDAYS[self.weekday_index][i]} {self.event[2:]}' for i in range(len(c.LANGUAGES)))
-        for r in related_records:
-            language = int(r[2])
-
-            if not int(r[1]):  # if the record is of a private chat
-                chat_id = int(r[0])
-                current[chat_id] = self  # the student is now answering whether they want to be notified about the event
-
-                msg = t.NEW_EVENT if int(a.Familiarity(*r[3]).answer_to_notify) else t.FT_NEW_EVENT
-                self.ask_polar(msg[language].format(event[language], choice(t.ASK_TO_NOTIFY[language])), chat_id)
-                self.num_to_answer += 1
-
-            else:  # if the record is of a non-private chat
-                BOT.send_message(int(r[0]), t.NEW_EVENT[language].format(event[language], ''))
+        return related_records
 
     def handle_answer(self, update: Update):
         """
-        This method is called when the bot receives an update after a student is asked whether they want the bot to
+        This method is called when the bot receives an update after the student is asked whether they want the bot to
         send them reminders about the new event. If the update is not caused by giving the answer (by clicking on one of
         the two provided inline buttons), it is ignored. Otherwise, the bot responds considering the answer and whether
         the events has already passed.
@@ -1069,15 +1139,12 @@ class AddingEvent(Interaction):
         except AttributeError:  # if the update is not caused by giving the answer
             return  # no response
 
-        self.num_to_answer -= 1
-
-        user_id = update.effective_user.id
-        record = a.get_chat_record(user_id)
-        language, familiarity = record.language, record.familiarity
+        chat_id = update.effective_chat.id
+        record = a.get_chat_record(chat_id)
 
         # if the user is answering for the first time whether they want to be notified about the event
-        if not int(familiarity.answer_to_notify):
-            Interaction.update_familiarity(user_id, familiarity, answer_to_notify='1')
+        if not int(record.familiarity.answer_to_notify):
+            Interaction.update_familiarity(chat_id, record.familiarity, answer_to_notify='1')
 
         has_passed = self.date < datetime.now()
 
@@ -1094,14 +1161,15 @@ class AddingEvent(Interaction):
             else:
                 log_msg, msg = lt.DISAGREES_LATE, t.WOULD_EXPECT_NO_NOTIFICATIONS
 
-        cl.info(log_msg.format(user_id, self.event_log))
+        cl.info(log_msg.format(chat_id, self.event_log))
         event = query.message.text.rpartition('\n\n')[0]
-        query.message.edit_text(f"{event}\n\n{msg[language]}")
+        query.message.edit_text(f"{event}\n\n{msg[record.language]}")
 
+        self.num_to_answer -= 1
         if not self.num_to_answer:  # if the student is the last one to have answered
             cl.info(lt.LAST_ANSWERS.format(self.group_id, self.event_log))
 
-        del current[user_id]
+        del current[chat_id]
 
 
 class CancelingEvent(Interaction):
@@ -1110,21 +1178,19 @@ class CancelingEvent(Interaction):
 
     def __init__(self, record: a.ChatRecord, events: str):
         super().__init__(record)
-        self.events: list[str] = None
+        self.events = events.split('\n')
 
-        self.ask_event(events)
+        self.ask_event()
         self.next_action = self.delete_event
 
-    def ask_event(self, events: str):
+    def ask_event(self):
         """
         This method makes the bot ask the admin which of the group's upcoming events to cancel. The options
         are provided as inline buttons.
         """
-        self.events = events.split('\n')
-
         events = [  # the group's upcoming events with their weekdays in the admin's language
-            [InlineKeyboardButton(f'{t.WEEKDAYS[int(e[0])][self.language]} {e[2:]}', callback_data=str(i))]
-            for i, e in enumerate(self.events)
+            [InlineKeyboardButton(f'{t.WEEKDAYS[int(event[0])][self.language]} {event[2:]}', callback_data=str(index))]
+            for index, event in enumerate(self.events)
         ]
         markup = InlineKeyboardMarkup(events)
 
@@ -1173,7 +1239,7 @@ class CancelingEvent(Interaction):
             updated_events = '\n'.join(events)
 
         if updated_events:  # if there are upcoming events besides the canceled one
-            cursor.execute(
+            cursor.execute(  # updating the group's saved info
                 'UPDATE groups SET events = ? WHERE id = ?',
                 (updated_events, self.group_id)
             )
@@ -1189,8 +1255,8 @@ class CancelingEvent(Interaction):
         event_log = event if len(event) < lt.CUT_LENGTH else f'{event[:lt.CUT_LENGTH - 1]}…'
         cl.info(lt.CANCELS.format(self.chat_id, event_log, self.group_id))
 
-        # the event with its weekday on each language
-        event = tuple(f'{t.WEEKDAYS[int(event[0])][i]} {event[2:]}' for i in range(len(c.LANGUAGES)))
+        # the event with its weekday in each language
+        event = tuple(f'{t.WEEKDAYS[int(event[0])][index]} {event[2:]}' for index in range(len(c.LANGUAGES)))
 
         query.message.edit_text(t.EVENT_CANCELED[self.language].format(event[self.language]))
         self.notify(event)
@@ -1213,8 +1279,8 @@ class CancelingEvent(Interaction):
         cursor.close()
         connection.close()
 
-        for r in student_records:
-            BOT.send_message(r[0], t.EVENT_CANCELED[r[1]].format(event[r[1]]))
+        for user_id, language in student_records:
+            BOT.send_message(user_id, t.EVENT_CANCELED[language].format(event[language]))
 
 
 class SavingInfo(Interaction):
@@ -1238,8 +1304,7 @@ class SavingInfo(Interaction):
         Args:
             update (telegram.Update): update received after the admin is asked information to save.
         """
-        info = update.effective_message.text
-        if '\n\n' not in info:
+        if '\n\n' not in (info := update.effective_message.text):
             if not self.is_familiar:  # if the admin is saving info for the first time
                 self.update_familiarity(self.chat_id, self.familiarity, save='1')
 
@@ -1297,8 +1362,8 @@ class SavingInfo(Interaction):
         cursor.close()
         connection.close()
 
-        for r in student_records:
-            BOT.send_message(r[0], t.NEW_INFO[r[1]].format(info))
+        for user_id, language in student_records:
+            BOT.send_message(user_id, t.NEW_INFO[language].format(info))
 
 
 class DeletingInfo(Interaction):
@@ -1318,7 +1383,7 @@ class DeletingInfo(Interaction):
         are provided as inline buttons.
         """
         info = [  # using indices because info can be longer than 64, which is the limit for a callback_data value
-            [InlineKeyboardButton(i, callback_data=str(index))] for index, i in enumerate(self.info)
+            [InlineKeyboardButton(info_piece, callback_data=str(index))] for index, info_piece in enumerate(self.info)
         ]
         markup = InlineKeyboardMarkup(info)
 
@@ -1445,84 +1510,299 @@ class NotifyingGroup(Interaction):
     COMMAND, UNAVAILABLE_MESSAGE, IS_PRIVATE = 'tell', t.UNAVAILABLE_NOTIFYING_GROUP, True
     ONGOING_MESSAGE, ALREADY_MESSAGE = t.ONGOING_NOTIFYING_GROUP, t.ALREADY_NOTIFYING_GROUP
 
-    def __init__(self, record: a.ChatRecord, num_groupmates: int):
+    def __init__(self, record: a.ChatRecord):
         super().__init__(record)
-        self.num_sent_to = num_groupmates
+        self.username = record.username
 
         msg = t.ASK_MESSAGE if self.is_familiar else t.FT_ASK_MESSAGE
         self.send_message(msg[self.language])
         self.next_action = self.notify
 
     def notify(self, update: Update):
+        """
+        This method is the last step of notifying the group, which the interaction is terminated after. It is called
+        when the bot receives an update after the leader is asked a message to notify their group with. The provided
+        message is forwarded to chats that are related to the group.
+
+        Args:
+            update (telegram.Update): update received after the leader is asked a message to notify their group with.
+        """
         if not self.is_familiar:  # if the leader is notifying their group for the first time
             self.update_familiarity(self.chat_id, self.familiarity, tell='1')
 
-        connection = connect(c.DATABASE)
-        cursor = connection.cursor()
-        cursor.execute(
-            'SELECT id FROM chats WHERE group_id = ? AND id <> ?',
-            (self.group_id, self.chat_id)
-        )
-        related_records: list[tuple[int]] = cursor.fetchall()
-        cursor.close()
-        connection.close()
-
+        related_records = self.get_related_records()
         message = update.effective_message
 
-        for r in related_records:
-            message.forward(r[0])
+        for chat_id, language in related_records:
+            BOT.send_message(chat_id, t.GROUP_NOTIFICATION[language].format(self.username))
+            message.forward(chat_id)
 
         message_log = message.text if len(message.text) <= lt.CUT_LENGTH else f'{message.text[:lt.CUT_LENGTH - 1]}…'
         cl.info(lt.NOTIFIES.format(self.chat_id, self.group_id, message_log.replace('\n', ' ')))
-        self.send_message(t.GROUPMATES_NOTIFIED[self.language])
+        self.send_message(t.GROUP_NOTIFIED[self.language].format(len(related_records)))
         self.terminate()
 
+    def get_related_records(self) -> list[tuple[int, int]]:
+        """
+        Returns (list[tuple[int, int]]): chats that are related to the admin's group. Namely, list of tuples containing
+            the chat's id and language.
+        """
+        connection = connect(c.DATABASE)
+        cursor = connection.cursor()
 
-# class AskingGroup(Interaction):  # 1 instance for all
-#     COMMAND, UNAVAILABLE_MESSAGE = 'ask', t.UNAVAILABLE_ASKING_GROUP
-#     ALREADY_MESSAGE, ONGOING_MESSAGE = t.ALREADY_ASKING_GROUP, t.ONGOING_ASKING_GROUP
-#
-#     def __init__(self, record: a.ChatRecord):
-#         super().__init__(record.id, record.language)
-#         self.question: str = None
-#         self.group_chat_id, self.public_answers_message_id = None, None
-#         self.answers: dict[int, list[str]] = None
-#         self.num_answers_left: int = None
-#         self.private_answers_message_id: int = None
-#
-#         self.ask_question()
-#
-#     def ask_question(self):
-#         # declare self.question
-#         self.next_action = self.ask_to_publish
-#
-#     def ask_to_publish(self, update: Update):  # if positive, the leader has to answer as well
-#         # if positive, declare self.group_chat_id
-#         self.next_action = self.send_message
-#
-#     def send_question(self, update: Update):
-#         # self.answers,  = {id : [username, answer]}
-#         # self.num_answers_left = len(self.answers)
-#         # self.private_answers_message_id = self.send_message(answers).message_id
-#         # if self.group_chat_id:
-#         #   self.public_answers_message_id = BOT.send_message(self.group_chat_id, answers).message_id
-#
-#         # refuse = [[
-#         #     InlineKeyboardButton(t.REFUSE_TO_ANSWER[self.language])
-#         # ]]
-#         # markup = InlineKeyboardMarkup(refuse)
-#         # send question
-#
-#         # the interaction with the leader is over
-#         self.next_action = self.update_answers
-#
-#     def update_answers(self, update: Update):
-#         # respond
-#         self.num_answers_left -= 1
-#         # update
-#         if not self.num_answers_left:  # if all the students have answered
-#             # notify the leader (and the group chat)
-#             self.terminate()
+        cursor.execute(
+            'SELECT id, language FROM chats WHERE group_id = ? AND id <> ?',
+            (self.group_id, self.chat_id)
+        )
+        related_records: list[tuple[int, int]] = cursor.fetchall()
+
+        cursor.close()
+        connection.close()
+
+        return related_records
+
+
+class AskingGroup(Interaction):  # todo: one question at the moment, button to stop the poll
+    COMMAND, UNAVAILABLE_MESSAGE, IS_PRIVATE = 'ask', t.UNAVAILABLE_ASKING_GROUP, True
+    ONGOING_MESSAGE, ALREADY_MESSAGE = t.ONGOING_ASKING_GROUP, t.ALREADY_ASKING_GROUP
+
+    ongoing = list[int]()  # ids of groups that are having the interaction
+
+    def __init__(self, record: a.ChatRecord):
+        super().__init__(record)
+        self.username = record.username
+        self.question_message_id: id = None
+        self.cut_question: str = None
+        self.group_chat: tuple[int, int] = None
+        self.is_public = False
+
+        self.leader_answer_message_id: int = None
+        self.group_answer_message_id: int = None
+        self.asked: dict[int, tuple[str, int, a.Familiarity, int]] = None
+        self.answered, self.refused = list[tuple[str, str]](), list[str]()
+
+        msg = t.ASK_QUESTION if self.is_familiar else t.FT_ASK_QUESTION
+        self.send_message(msg[self.language])
+        self.next_action = self.handle_question
+
+    def handle_question(self, update: Update):
+        """
+        This method is called when the bot receives an update after the leader is asked question to ask their group. It
+        saves id of the given question's message and checks whether the group has registered their group chat. If it
+        has, the leader is asked whether the future answers should be sent to the group chat, i. e., whether the
+        interaction is public. Otherwise, the second part of the interaction (sending the question and displaying the
+        answers) is launched.
+
+        Args:
+            update (telegram.Update): update received after the leader is asked question to ask their group.
+        """
+        message = update.effective_message
+        self.question_message_id = message.message_id
+        is_short = len(message.text) <= lt.CUT_LENGTH
+        self.cut_question = message.text if is_short else f'{message.text[:lt.CUT_LENGTH - 1]}…'
+
+        self.group_chat = self.find_group_chat()
+        if self.group_chat:
+            msg = t.ASK_TO_PUBLISH if self.is_familiar else t.FT_ASK_TO_PUBLISH
+            self.leader_answer_message_id = self.ask_polar(msg[self.language]).message_id
+            self.next_action = self.handle_answer
+        else:
+            self.launch()
+
+    def find_group_chat(self) -> Union[tuple[int, int], None]:
+        """
+        Returns (tuple[int, int] or None): record of the group chat of the leader's group. None if the group has not
+            registered one.
+        """
+        connection = connect(c.DATABASE)
+        cursor = connection.cursor()
+        cursor.execute(  # group chat of the leader's group
+            'SELECT id, language FROM chats WHERE group_id = ? AND type <> 0',
+            (self.group_id,)
+        )
+        group_chat_record = cursor.fetchone()
+        cursor.close()
+        connection.close()
+
+        return group_chat_record
+
+    def handle_answer(self, update: Update):
+        """
+        This method is called when the bot receives an update after the leader is asked whether the interaction is
+        public. If the update is not caused by giving the answer (by clicking on one of the two provided inline
+        buttons), it is ignored. Otherwise, the given answer is saved and the second part of the interaction (sending
+        the question and displaying the answers) is launched.
+
+        Args:
+            update (telegram.Update): update received after the leader is asked whether the interaction is public.
+        """
+        try:
+            self.is_public = update.callback_query.data == 'y'
+        except AttributeError:  # if the update is not caused by giving the answer
+            return  # no response
+        self.launch()
+
+    def launch(self):
+        """
+        This method launches the second part of the interaction, which consists of receiving the students' answers.
+        It makes the bot send a message to the leader, that contains information about the answers, refusals and
+        students who have yet to responded. It also makes the bot send the question to the leader's groupmates. If the
+        interaction is public, the answer message is also sent to the group's group chat, and the leader is also asked
+        the question.
+        """
+        self.ongoing.append(self.group_id)
+        self.ONGOING_MESSAGE = self.ALREADY_MESSAGE = t.ONGOING_ANSWERING
+        if not self.is_familiar:  # if the leader is asking their group for the first time
+            self.update_familiarity(self.chat_id, self.familiarity, ask='1')
+
+        self.asked = self.get_asked()
+        usernames = self.send_answer_list()
+        markup = self.send_question()
+
+        if self.is_public:
+            asked = t.ASKED[self.group_chat[1]].format(usernames)
+            text = t.ANSWER_LIST.format(self.cut_question, '', '', asked)
+            self.group_answer_message_id = BOT.send_message(self.group_chat[0], text).message_id
+
+            text = t.ASK_LEADER_ANSWER[self.language]
+            message_id = self.send_message(text, reply_markup=markup[self.language]).message_id
+            self.asked[self.chat_id] = [self.username, self.language, self.familiarity, message_id]
+
+        else:
+            del current[self.chat_id]
+
+        self.next_action = self.handle_response
+
+    def get_asked(self) -> dict[int, list[str, int, a.Familiarity]]:
+        """
+        Returns (dict[int, list[str, int, a.Familiarity]]): the leader's groupmates. Namely, dict with items with the
+            student's id as the key and a list containing their username, language, and familiarity with the bot's
+            interactions, as the value.
+        """
+        connection = connect(c.DATABASE)
+        cursor = connection.cursor()
+        cursor.execute(  # the leader's groupmates
+            'SELECT id, username, language, familiarity FROM chats WHERE group_id = ? AND type = 0 AND id <> ?',
+            (self.group_id, self.chat_id)
+        )
+        asked_records: list[tuple[int, str, int, str]] = cursor.fetchall()
+        cursor.close()
+        connection.close()
+
+        return {
+            user_id: [username, language, a.Familiarity(*familiarity)]
+            for user_id, username, language, familiarity in asked_records
+        }
+
+    def send_answer_list(self) -> str:
+        """
+        This method makes the bot send a message to the leader, that contains information about the students' answers to
+        the question, which students refused to answer and which have yet to responded (initially, all of the students
+        are yet to have responded). Id of the sent message is saved so that its text can be changed later.
+
+        Returns (str): usernames of the students who the question will be sent to, each on a separate line.
+        """
+        usernames = [r[0] for r in self.asked.values()]
+        if self.is_public:
+            usernames.append(self.username)
+        usernames.sort(key=a.string_sort_key)
+        usernames = '\n'.join(usernames)
+
+        asked = t.ASKED[self.language].format(usernames)
+        text = t.ANSWER_LIST.format(self.cut_question, '', '', asked)
+        try:
+            BOT.edit_message_text(text, self.chat_id, self.leader_answer_message_id)
+        except BadRequest:
+            self.leader_answer_message_id = self.send_message(text).message_id
+
+        return usernames
+
+    def send_question(self) -> tuple[InlineKeyboardMarkup]:
+        """
+        This method makes the bot send the question. Namely, to forward the message that the leader sent the question
+        in. An option to refuse to answer by clicking an inline button is also provided.
+
+        Returns(tuple[telegram.InlineKeyboardMarkup]): inline markups with a refuse inline button in each language.
+        """
+        refuse = tuple(  # refuse inline button in each language
+            [[InlineKeyboardButton(t.REFUSE_TO_ANSWER[index], callback_data='_')]] for index in range(len(c.LANGUAGES))
+        )
+        markup = tuple(InlineKeyboardMarkup(r) for r in refuse)
+
+        for user_id, (username, language, familiarity) in self.asked.items():
+            current[user_id] = self
+            BOT.forward_message(user_id, self.chat_id, self.question_message_id)
+            msg = (t.ASK_ANSWER if int(familiarity.answer) else t.FT_ASK_ANSWER)[language]
+            info = (t.PUBLIC_ANSWER if self.is_public else t.PRIVATE_ANSWER)[language]
+            text = msg.format(info.format(self.username))
+            message_id = BOT.send_message(user_id, text, reply_markup=markup[language]).message_id
+            self.asked[user_id] = (username, language, familiarity, message_id)
+
+        return markup
+
+    def handle_response(self, update: Update):
+        """
+        This method is called when the bot receives an update after the student has been sent the question. If the
+        update is caused by sending a text message, it is considered an answer, and a refusal to answer otherwise.
+        In both cases, the response is considered and the answer message(s) is (are) updated.
+
+        Args:
+            update (telegram.Update): update received after the student has been sent the question.
+        """
+        chat, message = update.effective_chat, update.effective_message
+        username, language,  familiarity, message_id = self.asked[chat.id]
+
+        # if the user is not the leader and is answering for the first time
+        if familiarity and not int(familiarity.answer):
+            Interaction.update_familiarity(chat.id, familiarity, answer='1')
+
+        if not update.callback_query:  # if an answer is given
+            self.answered.append((username, message.text.replace('\n\n', '\n')))
+            msg = t.ANSWER_SENT
+        else:  # if the student has refused to answer
+            self.refused.append(username)
+            msg = t.REFUSAL_SENT
+
+        BOT.edit_message_text(msg[language], chat.id, message_id)
+        del self.asked[chat.id]
+
+        usernames_answered = '\n\n'.join([f'{username}\n{answer}' for username, answer in self.answered])
+        usernames_refused = '\n'.join(self.refused)
+        usernames_asked = '\n'.join(tuple(r[0] for r in self.asked.values()))
+
+        self.update_answers(self.chat_id, self.language, self.leader_answer_message_id,
+                            (usernames_answered, usernames_refused, usernames_asked))
+        if self.is_public:
+            self.update_answers(*self.group_chat, self.group_answer_message_id,
+                                (usernames_answered, usernames_refused, usernames_asked))
+
+        if not self.asked:  # if all the students have answered
+            # todo: remove the stopping button
+            self.send_message(t.ALL_ANSWERED[self.language].format(self.cut_question))
+            if self.is_public:
+                text = t.ALL_ANSWERED[self.group_chat[1]].format(self.cut_question)
+                BOT.send_message(self.group_chat[0], text)
+
+            self.ongoing.remove(self.group_id)
+
+        del current[chat.id]
+
+    def update_answers(self, chat_id: int, language: int, answer_message_id: int, usernames: tuple[str]):
+        """
+        This method updates the answer message by making the bot edit its texts.
+
+        Args:
+            chat_id (int): id of the chat that the answer message is in.
+            language (int): language of the chat that the answer message is in.
+            answer_message_id (int): if of the answer message.
+            usernames(tuple[str]): new text for the message, based on the current information about the students'
+                responses (answers, refusals, absence of a response).
+        """
+        answered = t.ANSWERED[language].format(usernames[0]) if usernames[0] else ''
+        refused = t.REFUSED[language].format(usernames[1]) if usernames[1] else ''
+        asked = t.ASKED[language].format(usernames[2]) if usernames[2] else ''
+        text = t.ANSWER_LIST.format(self.cut_question, answered, refused, asked)
+        BOT.edit_message_text(text, chat_id, answer_message_id)
 
 
 class ChangingLeader(Interaction):
@@ -1540,6 +1820,24 @@ class ChangingLeader(Interaction):
         """
         This method makes the bot ask the leader which of their group's students their authorities will be given to. The
         options are the group's admins (or ordinary students) and are provided as inline buttons.
+        """
+        candidates = [
+            [InlineKeyboardButton(username, callback_data=f'{user_id} {username} {language}')]
+            for user_id, username, language in self.get_candidate_records()
+        ]
+        markup = InlineKeyboardMarkup(candidates)
+
+        msg = t.FT_ASK_NEW_LEADER if not self.is_familiar else t.ASK_NEW_LEADER
+        self.send_message(msg[self.language], reply_markup=markup)
+
+    def get_candidate_records(self) -> list[tuple[int, str, int]]:
+        """
+        This method determines the leader's groupmates to let them choose the new leader from. The candidates are the
+        group's admins if they are there, and the group's ordinary students otherwise.
+
+        Returns (list[tuple[int, str, int]]): candidates for being the new leader, sorted by their usernames or other
+            identifiers. Namely, list of tuples containing the candidate's telegram id, username or other identifier,
+            and language.
         """
         connection = connect(c.DATABASE)
         cursor = connection.cursor()
@@ -1561,15 +1859,8 @@ class ChangingLeader(Interaction):
         cursor.close()
         connection.close()
 
-        candidate_records: list[tuple[int, str, int]] = sorted(candidate_records, key=lambda r: a.string_sort_key(r[1]))
-
-        candidates = [
-            [InlineKeyboardButton(r[1], callback_data=f'{r[0]} {r[1]} {r[2]}')] for r in candidate_records
-        ]
-        markup = InlineKeyboardMarkup(candidates)
-
-        msg = t.FT_ASK_NEW_LEADER if not self.is_familiar else t.ASK_NEW_LEADER
-        self.send_message(msg[self.language], reply_markup=markup)
+        candidate_records.sort(key=lambda r: a.string_sort_key(r[1]))
+        return candidate_records
 
     def change_leader(self, update: Update):
         """
