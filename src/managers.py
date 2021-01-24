@@ -106,7 +106,7 @@ def leader_confirmation(record: a.ChatRecord, update: Update):
 
     else:  # if there is already a leader in the group
         message.reply_text(t.ALREADY_LEADER_IN_GROUP[record.language], quote=not is_private)
-        i.cl.info(lt.CLAIM_WITH_LEADER.format(record.id, leader[0]))
+        i.cl.info(lt.CLAIM_WITH_LEADER.format(record.id))
 
     cursor.close()
     connection.close()
@@ -150,7 +150,7 @@ def adding_admin(record: a.ChatRecord, update: Update):
         i.cl.info(lt.TRUST_OVER_LIMIT.format(record.id, num_admins, num_students))
     else:  # if the leader is the only registered student from the group
         message.reply_text(t.NO_GROUPMATES_TO_TRUST[record.language], quote=not is_private)
-        i.cl.info(lt.TRUST_WITHOUT_GROUPMATES.format(record.id, record.group_id))
+        i.cl.info(lt.TRUST_ALONE.format(record.id, record.group_id))
 
 
 def removing_admin(record: a.ChatRecord, update: Update):
@@ -225,7 +225,7 @@ def canceling_event(record: a.ChatRecord, update: Update):
         attempt_interaction(COMMANDS[i.CancelingEvent.COMMAND], record, chat, is_private, message, events)
     else:
         message.reply_text(t.ALREADY_NO_EVENTS[record.language], quote=not is_private)
-        i.cl.info(lt.CANCEL_WITHOUT_EVENTS.format(record.id, record.group_id))
+        i.cl.info(lt.CANCEL_WITHOUT_EVENTS.format(record.id))
 
 
 def saving_info(record: a.ChatRecord, update: Update):
@@ -273,7 +273,7 @@ def deleting_info(record: a.ChatRecord, update: Update):
 
     else:
         message.reply_text(t.ALREADY_NO_INFO[record.language], quote=not is_private)
-        i.cl.info(lt.DELETE_WITHOUT_INFO.format(record.id, command, record.group_id))
+        i.cl.info(lt.DELETE_WITHOUT_INFO.format(record.id, command))
 
 
 def leader_involving_group(record: a.ChatRecord, update: Update):
@@ -302,14 +302,14 @@ def leader_involving_group(record: a.ChatRecord, update: Update):
 
     if num_groupmates:  # if the leader is not the only registered one from the group
 
-        if command == i.AskingGroup.COMMAND and record.group_id in i.AskingGroup.ongoing:
+        if command == i.AskingGroup.COMMAND and record.group_id in i.current:
             message.reply_text(t.ONGOING_GROUP_ANSWERING[record.language], quote=not is_private)
             return
 
         attempt_interaction(COMMANDS[command], record, chat, is_private, message)
 
     else:  # if the leader is the only registered one from the group
-        i.cl.info(lt.INVOLVING_GROUP_ALONE.format(record.id, command, record.group_id))
+        i.cl.info(lt.INVOLVING_GROUP_ALONE.format(record.id, command))
 
         if is_communicative:  # if the command is /tell or /ask
             msg = t.NO_GROUPMATES_TO_NOTIFY if command == i.NotifyingGroup.COMMAND else t.NO_GROUPMATES_TO_ASK

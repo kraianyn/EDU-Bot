@@ -61,8 +61,14 @@ def callback_query_handler(update: Update, _):
         update (telegram.Update): update received after an inline button is clicked.
         _ (telegram.CallbackContext): context object passed by the CallbackQueryHandler. Not used.
     """
-    # the chat is having an interaction if it was able to click on an inline button
-    i.current[update.effective_chat.id].next_action(update)
+    chat_id = update.effective_chat.id
+    try:
+        i.current[chat_id].next_action(update)
+    except KeyError:
+        try:
+            i.current[a.get_chat_record(chat_id).group_id].next_action(update)
+        except KeyError:
+            pass
 
 
 def text_handler(update: Update, _):

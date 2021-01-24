@@ -4,7 +4,7 @@ from collections import namedtuple
 from sqlite3 import connect
 
 from src.config import DATABASE
-
+from src.log_text import CUT_LENGTH
 
 ChatRecord = namedtuple(
     'ChatRecord',
@@ -71,11 +71,15 @@ def str_to_datetime(string: str) -> datetime:
     Args:
         string (str): string containing date in the format according to src.config.DATE_PATTERN.
     """
-    day, month, hour, minute = int(string[2:4]), int(string[5:7]), 0, 0
+    day, month, hour, minute = int(string[2:4]), int(string[5:7]), 23, 59
     if string[7] == ',':  # if the event contains time
         hour, minute = int(string[9:11]), int(string[12:14])
 
     now = datetime.now()
     date_this_year = datetime(now.year, month, day, hour, minute)
 
-    return date_this_year if date_this_year > now else datetime(now.year + 1, month, day, hour, minute)
+    return date_this_year if now < date_this_year else datetime(now.year + 1, month, day, hour, minute)
+
+
+def cut(string: str):
+    return (string if len(string) <= CUT_LENGTH else f'{string[:CUT_LENGTH - 1]}…').replace('\n', ' ')

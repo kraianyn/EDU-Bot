@@ -806,6 +806,11 @@ ASKED = (
     '\n\nNo response:\n{}',
     ''
 )
+STOP_ASKING_GROUP = (
+    '',
+    'STOP_ASKING_GROUP',
+    ''
+)
 ONGOING_ANSWERING = (
     '',
     'ONGOING_ANSWERING',
@@ -825,6 +830,18 @@ ALL_ANSWERED = (
     '',
     'ALL_ANSWERED "{}"',
     ''
+)
+GROUP_ASKING_TERMINATED = (
+    (
+        '',
+        '[l] GROUP_ASKING_TERMINATED',
+        ''
+    ),
+    (
+        '',
+        '[s] GROUP_ASKING_TERMINATED',
+        ''
+    ),
 )
 
 # ------------------------------------------------------------------------------------------- asking group (exceptions)

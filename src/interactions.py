@@ -74,7 +74,7 @@ class Interaction:
         """
         This method makes the bot send a message to the chat.
 
-        # todo
+        Returns (telegram.Message): the sent message.
         """
         return BOT.send_message(self.chat_id, *args, **kwargs)
 
@@ -598,12 +598,12 @@ class LeaderConfirmation(Interaction):
             connection.commit()
             cursor.close()
             connection.close()
-            cl.info(lt.CONFIRMED.format(self.candidate_id, self.group_id))
+            cl.info(lt.CONFIRMED.format(self.candidate_id))
 
             return True
 
         else:
-            cl.info(lt.NOT_CONFIRMED.format(self.candidate_id, self.group_id))
+            cl.info(lt.NOT_CONFIRMED.format(self.candidate_id))
             for user_id, language in self.late_claimers:
                 BOT.send_message(user_id, t.CANDIDATE_NOT_CONFIRMED[language].format(self.candidate_username))
 
@@ -736,7 +736,7 @@ class AddingAdmin(Interaction):
         connection.commit()
         cursor.close()
         connection.close()
-        cl.info(lt.ADDS_ADMIN.format(self.chat_id, new_admin_id))
+        cl.info(lt.NOW_ADMIN.format(new_admin_id))
 
         BOT.send_message(new_admin_id, t.YOU_NOW_ADMIN[new_admin_language].format(t.ADMIN_COMMANDS[new_admin_language]))
         query.message.edit_text(t.NOW_ADMIN[self.language].format(new_admin_username))
@@ -820,7 +820,7 @@ class RemovingAdmin(Interaction):
         connection.commit()
         cursor.close()
         connection.close()
-        cl.info(lt.REMOVES_ADMIN.format(self.chat_id, self.admin_id))
+        cl.info(lt.NO_MORE_ADMIN.format(self.admin_id))
 
         msg = t.ASK_TO_NOTIFY_FORMER if self.is_familiar else t.FT_ASK_TO_NOTIFY_FORMER
         self.ask_polar(msg[self.language].format(self.admin_username), query)
@@ -913,7 +913,7 @@ class AddingEvent(Interaction):
     def __init__(self, record: a.ChatRecord):
         super().__init__(record)
         self.event: str = None
-        self.event_log: str = None  # self.event cut to src.logs_text.CUT_LENGTH
+        self.cut_event: str = None
         self.date: datetime = None
         self.weekday_index: int = None
         self.date_str: str = None
@@ -1009,7 +1009,7 @@ class AddingEvent(Interaction):
                                     return t.INVALID_HOUR[self.language]
 
                             else:
-                                hour, minute = 0, 0
+                                hour, minute = 23, 59
 
                             date_this_year = datetime(now.year, month, day, hour, minute)
                             self.date = date_this_year if now < date_this_year \
@@ -1045,7 +1045,7 @@ class AddingEvent(Interaction):
         with time go first).
         """
         self.event = f'{self.date_str} — {self.event}'
-        self.event_log = self.event if len(self.event) <= lt.CUT_LENGTH else f'{self.event[:lt.CUT_LENGTH - 1]}…'
+        self.cut_event = a.cut(self.event)
 
         connection = connect(c.DATABASE)
         cursor = connection.cursor()
@@ -1059,14 +1059,8 @@ class AddingEvent(Interaction):
         except AttributeError:  # if the group has no upcoming events
             updated_events = f'{self.event}'
         else:
-            num_events = len(events)
-            for i in range(num_events):  # todo: not manual sort?
-                if self.date > a.str_to_datetime(events[num_events - i - 1]):  # if the new event is later
-                    events.insert(num_events - i, self.event)
-                    break
-            else:  # if the new event is the earliest one
-                events.insert(0, self.event)
-
+            events.append(self.event)
+            events.sort(key=a.str_to_datetime)
             updated_events = '\n'.join(events)
 
         cursor.execute(  # updating the group's upcoming events
@@ -1077,7 +1071,7 @@ class AddingEvent(Interaction):
         connection.commit()
         cursor.close()
         connection.close()
-        cl.info(lt.ADDS.format(self.chat_id, self.event_log, self.group_id))
+        cl.info(lt.ADDS.format(self.chat_id, self.cut_event))
 
     def notify(self):
         """
@@ -1091,7 +1085,7 @@ class AddingEvent(Interaction):
         event = tuple(f'{t.WEEKDAYS[self.weekday_index][index]} {self.event[2:]}' for index in range(len(c.LANGUAGES)))
         for chat_id, chat_type, language, familiarity in related_records:
 
-            if not t:  # if the record is of a private chat
+            if not chat_type:  # if the record is of a private chat
                 current[chat_id] = self  # the student is now answering whether they want to be notified about the event
                 self.num_to_answer += 1
 
@@ -1161,13 +1155,13 @@ class AddingEvent(Interaction):
             else:
                 log_msg, msg = lt.DISAGREES_LATE, t.WOULD_EXPECT_NO_NOTIFICATIONS
 
-        cl.info(log_msg.format(chat_id, self.event_log))
+        cl.info(log_msg.format(chat_id, self.cut_event))
         event = query.message.text.rpartition('\n\n')[0]
         query.message.edit_text(f"{event}\n\n{msg[record.language]}")
 
         self.num_to_answer -= 1
         if not self.num_to_answer:  # if the student is the last one to have answered
-            cl.info(lt.LAST_ANSWERS.format(self.group_id, self.event_log))
+            cl.info(lt.ALL_ANSWERED_TO_NOTIFY.format(self.group_id, self.cut_event))
 
         del current[chat_id]
 
@@ -1252,8 +1246,7 @@ class CancelingEvent(Interaction):
         connection.commit()
         cursor.close()
         connection.close()
-        event_log = event if len(event) < lt.CUT_LENGTH else f'{event[:lt.CUT_LENGTH - 1]}…'
-        cl.info(lt.CANCELS.format(self.chat_id, event_log, self.group_id))
+        cl.info(lt.CANCELS.format(self.chat_id, a.cut(event)))
 
         # the event with its weekday in each language
         event = tuple(f'{t.WEEKDAYS[int(event[0])][index]} {event[2:]}' for index in range(len(c.LANGUAGES)))
@@ -1342,8 +1335,7 @@ class SavingInfo(Interaction):
         connection.commit()
         cursor.close()
         connection.close()
-        info_log = info if len(info) <= lt.CUT_LENGTH else f'{info[:lt.CUT_LENGTH - 1]}…'
-        cl.info(lt.SAVES.format(self.chat_id, info_log.replace('\n', ' '), self.group_id))
+        cl.info(lt.SAVES.format(self.chat_id, a.cut(info)))
 
     def notify(self, info: str):
         """
@@ -1445,10 +1437,10 @@ class DeletingInfo(Interaction):
         connection.commit()
         cursor.close()
         connection.close()
-        info_log = info_piece if len(info_piece) <= lt.CUT_LENGTH else f'{info_piece[:lt.CUT_LENGTH - 1]}…'
-        cl.info(lt.DELETES.format(self.chat_id, info_log.replace('\n', ' '), self.group_id))
+        cut_info = a.cut(info_piece)
+        cl.info(lt.DELETES.format(self.chat_id, cut_info))
 
-        query.message.edit_text(t.INFO_DELETED[self.language].format(info_log))
+        query.message.edit_text(t.INFO_DELETED[self.language].format(cut_info))
         self.terminate()
 
 
@@ -1503,7 +1495,7 @@ class ClearingInfo(Interaction):
         connection.commit()
         cursor.close()
         connection.close()
-        cl.info(lt.CLEARS.format(self.chat_id, self.group_id))
+        cl.info(lt.CLEARS.format(self.chat_id))
 
 
 class NotifyingGroup(Interaction):
@@ -1537,8 +1529,7 @@ class NotifyingGroup(Interaction):
             BOT.send_message(chat_id, t.GROUP_NOTIFICATION[language].format(self.username))
             message.forward(chat_id)
 
-        message_log = message.text if len(message.text) <= lt.CUT_LENGTH else f'{message.text[:lt.CUT_LENGTH - 1]}…'
-        cl.info(lt.NOTIFIES.format(self.chat_id, self.group_id, message_log.replace('\n', ' ')))
+        cl.info(lt.NOTIFIES.format(self.chat_id, a.cut(message.text)))
         self.send_message(t.GROUP_NOTIFIED[self.language].format(len(related_records)))
         self.terminate()
 
@@ -1562,11 +1553,9 @@ class NotifyingGroup(Interaction):
         return related_records
 
 
-class AskingGroup(Interaction):  # todo: one question at the moment, button to stop the poll
+class AskingGroup(Interaction):
     COMMAND, UNAVAILABLE_MESSAGE, IS_PRIVATE = 'ask', t.UNAVAILABLE_ASKING_GROUP, True
     ONGOING_MESSAGE, ALREADY_MESSAGE = t.ONGOING_ASKING_GROUP, t.ALREADY_ASKING_GROUP
-
-    ongoing = list[int]()  # ids of groups that are having the interaction
 
     def __init__(self, record: a.ChatRecord):
         super().__init__(record)
@@ -1578,6 +1567,10 @@ class AskingGroup(Interaction):  # todo: one question at the moment, button to s
 
         self.leader_answer_message_id: int = None
         self.group_answer_message_id: int = None
+
+        stop = [[InlineKeyboardButton(t.STOP_ASKING_GROUP[self.language], callback_data='terminate')]]
+        self.stop_markup = InlineKeyboardMarkup(stop)
+
         self.asked: dict[int, tuple[str, int, a.Familiarity, int]] = None
         self.answered, self.refused = list[tuple[str, str]](), list[str]()
 
@@ -1598,8 +1591,7 @@ class AskingGroup(Interaction):  # todo: one question at the moment, button to s
         """
         message = update.effective_message
         self.question_message_id = message.message_id
-        is_short = len(message.text) <= lt.CUT_LENGTH
-        self.cut_question = message.text if is_short else f'{message.text[:lt.CUT_LENGTH - 1]}…'
+        self.cut_question = a.cut(message.text)
 
         self.group_chat = self.find_group_chat()
         if self.group_chat:
@@ -1640,17 +1632,17 @@ class AskingGroup(Interaction):  # todo: one question at the moment, button to s
             self.is_public = update.callback_query.data == 'y'
         except AttributeError:  # if the update is not caused by giving the answer
             return  # no response
+        cl.info((lt.MAKES_PUBLIC if self.is_public else lt.MAKES_NON_PUBLIC).format(self.chat_id))
         self.launch()
 
     def launch(self):
         """
         This method launches the second part of the interaction, which consists of receiving the students' answers.
         It makes the bot send a message to the leader, that contains information about the answers, refusals and
-        students who have yet to responded. It also makes the bot send the question to the leader's groupmates. If the
+        students who have yet to respond. It also makes the bot send the question to the leader's groupmates. If the
         interaction is public, the answer message is also sent to the group's group chat, and the leader is also asked
         the question.
         """
-        self.ongoing.append(self.group_id)
         self.ONGOING_MESSAGE = self.ALREADY_MESSAGE = t.ONGOING_ANSWERING
         if not self.is_familiar:  # if the leader is asking their group for the first time
             self.update_familiarity(self.chat_id, self.familiarity, ask='1')
@@ -1671,6 +1663,7 @@ class AskingGroup(Interaction):  # todo: one question at the moment, button to s
         else:
             del current[self.chat_id]
 
+        current[self.group_id] = self
         self.next_action = self.handle_response
 
     def get_asked(self) -> dict[int, list[str, int, a.Familiarity]]:
@@ -1697,7 +1690,7 @@ class AskingGroup(Interaction):  # todo: one question at the moment, button to s
     def send_answer_list(self) -> str:
         """
         This method makes the bot send a message to the leader, that contains information about the students' answers to
-        the question, which students refused to answer and which have yet to responded (initially, all of the students
+        the question, which students refused to answer and which have yet to respond (initially, all of the students
         are yet to have responded). Id of the sent message is saved so that its text can be changed later.
 
         Returns (str): usernames of the students who the question will be sent to, each on a separate line.
@@ -1710,10 +1703,11 @@ class AskingGroup(Interaction):  # todo: one question at the moment, button to s
 
         asked = t.ASKED[self.language].format(usernames)
         text = t.ANSWER_LIST.format(self.cut_question, '', '', asked)
+
         try:
-            BOT.edit_message_text(text, self.chat_id, self.leader_answer_message_id)
+            BOT.edit_message_text(text, self.chat_id, self.leader_answer_message_id, reply_markup=self.stop_markup)
         except BadRequest:
-            self.leader_answer_message_id = self.send_message(text).message_id
+            self.leader_answer_message_id = self.send_message(text, reply_markup=self.stop_markup).message_id
 
         return usernames
 
@@ -1725,7 +1719,8 @@ class AskingGroup(Interaction):  # todo: one question at the moment, button to s
         Returns(tuple[telegram.InlineKeyboardMarkup]): inline markups with a refuse inline button in each language.
         """
         refuse = tuple(  # refuse inline button in each language
-            [[InlineKeyboardButton(t.REFUSE_TO_ANSWER[index], callback_data='_')]] for index in range(len(c.LANGUAGES))
+            [[InlineKeyboardButton(t.REFUSE_TO_ANSWER[index], callback_data='refuse')]]
+            for index in range(len(c.LANGUAGES))
         )
         markup = tuple(InlineKeyboardMarkup(r) for r in refuse)
 
@@ -1738,31 +1733,40 @@ class AskingGroup(Interaction):  # todo: one question at the moment, button to s
             message_id = BOT.send_message(user_id, text, reply_markup=markup[language]).message_id
             self.asked[user_id] = (username, language, familiarity, message_id)
 
+        cl.info(lt.ASKED.format(self.group_id, self.cut_question))
         return markup
 
     def handle_response(self, update: Update):
         """
         This method is called when the bot receives an update after the student has been sent the question. If the
-        update is caused by sending a text message, it is considered an answer, and a refusal to answer otherwise.
-        In both cases, the response is considered and the answer message(s) is (are) updated.
+        update is caused by sending a text message, it is considered an answer, and a refusal to answer otherwise. In
+        both cases, the response is considered and the answer message(s) is (are) updated. This method is also called
+        when the leader terminates the interaction.
 
         Args:
             update (telegram.Update): update received after the student has been sent the question.
         """
-        chat, message = update.effective_chat, update.effective_message
-        username, language,  familiarity, message_id = self.asked[chat.id]
+        # if the leader has terminated the interaction
+        if (query := update.callback_query) and query.data == 'terminate':
+            self.terminate()
+            return
+
+        chat, message, query = update.effective_chat, update.effective_message, update.callback_query
+        username, language, familiarity, message_id = self.asked[chat.id]
 
         # if the user is not the leader and is answering for the first time
         if familiarity and not int(familiarity.answer):
-            Interaction.update_familiarity(chat.id, familiarity, answer='1')
+            self.update_familiarity(chat.id, familiarity, answer='1')
 
-        if not update.callback_query:  # if an answer is given
-            self.answered.append((username, message.text.replace('\n\n', '\n')))
-            msg = t.ANSWER_SENT
+        if not query:  # if an answer is given
+            answer = message.text.replace('\n\n', '\n')
+            self.answered.append((username, answer))
+            log_text, msg = lt.ANSWERS.format(chat.id, a.cut(answer)), t.ANSWER_SENT
         else:  # if the student has refused to answer
             self.refused.append(username)
-            msg = t.REFUSAL_SENT
+            log_text, msg = lt.REFUSES.format(chat.id), t.REFUSAL_SENT
 
+        cl.info(log_text)
         BOT.edit_message_text(msg[language], chat.id, message_id)
         del self.asked[chat.id]
 
@@ -1776,14 +1780,15 @@ class AskingGroup(Interaction):  # todo: one question at the moment, button to s
             self.update_answers(*self.group_chat, self.group_answer_message_id,
                                 (usernames_answered, usernames_refused, usernames_asked))
 
-        if not self.asked:  # if all the students have answered
-            # todo: remove the stopping button
+        if not self.asked:  # if all of the students have answered
+            BOT.edit_message_reply_markup(self.chat_id, self.leader_answer_message_id)
             self.send_message(t.ALL_ANSWERED[self.language].format(self.cut_question))
             if self.is_public:
                 text = t.ALL_ANSWERED[self.group_chat[1]].format(self.cut_question)
                 BOT.send_message(self.group_chat[0], text)
 
-            self.ongoing.remove(self.group_id)
+            del current[self.group_id]
+            cl.info(lt.ALL_ANSWERED.format(self.group_id))
 
         del current[chat.id]
 
@@ -1801,8 +1806,31 @@ class AskingGroup(Interaction):  # todo: one question at the moment, button to s
         answered = t.ANSWERED[language].format(usernames[0]) if usernames[0] else ''
         refused = t.REFUSED[language].format(usernames[1]) if usernames[1] else ''
         asked = t.ASKED[language].format(usernames[2]) if usernames[2] else ''
+
         text = t.ANSWER_LIST.format(self.cut_question, answered, refused, asked)
-        BOT.edit_message_text(text, chat_id, answer_message_id)
+        markup = self.stop_markup if chat_id == self.chat_id else None
+        BOT.edit_message_text(text, chat_id, answer_message_id, reply_markup=markup)
+
+    def terminate(self):
+        """
+        This method terminates the interaction. It deletes the refuse buttons of students who have yet to respond and
+        sends them a message explaining that the answer is no longer expected. The the leader's terminating button is
+        also deleted.
+        """
+        BOT.edit_message_reply_markup(self.chat_id, self.leader_answer_message_id)  # deleting the terminating button
+        if self.chat_id in self.asked:  # if the interaction is public and the leader has yet to respond
+            BOT.edit_message_reply_markup(self.chat_id, self.asked[self.chat_id][3])  # removing the refuse button
+            del self.asked[self.chat_id]  # the leader is no longer expected to respond
+            del current[self.chat_id]  # the leader is no longer having the interaction
+
+        for user_id, (_, language, _, message_id) in self.asked.items():
+            BOT.edit_message_reply_markup(user_id, message_id)  # removing the refuse button
+            BOT.send_message(user_id, t.GROUP_ASKING_TERMINATED[1][language])
+            del current[user_id]  # the student is no longer having the interaction
+
+        del current[self.group_id]  # the group is no longer having the interaction
+        cl.info(lt.TERMINATES.format(self.chat_id))
+        self.send_message(t.GROUP_ASKING_TERMINATED[self.language])
 
 
 class ChangingLeader(Interaction):
@@ -1899,7 +1927,7 @@ class ChangingLeader(Interaction):
         connection.commit()
         cursor.close()
         connection.close()
-        cl.info(lt.CHANGES_LEADER.format(self.chat_id, new_leader_id, self.group_id))
+        cl.info(lt.NOW_LEADER.format(new_leader_id))
 
         new_commands = '' if self.to_admin else t.ADMIN_COMMANDS[new_leader_language]
         new_commands += t.LEADER_COMMANDS[new_leader_language]
