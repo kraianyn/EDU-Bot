@@ -48,4 +48,6 @@ ASKED = 'students of {} are asked "{}"'
 ANSWERS, REFUSES = '{} answers with "{}"', '{} refuses to answer'
 ALL_ANSWERED, TERMINATES = 'all students of {} have answered', '{} terminates asking'
 
+SENDS_FEEDBACK = '{} sends feedback "{}"'
+
 INFO, EVENTS = '{} displays info', '{} displays events'

@@ -13,7 +13,7 @@ ORDINARY_ROLE, ADMIN_ROLE, LEADER_ROLE = 0, 1, 2
 DATABASE = '../memory.db'
 STATIC_INITIAL_STUDENT = (
     ORDINARY_ROLE,  # role in the group
-    '00000000000000'  # familiarity with the bot's interactions according to src.auxiliary.Familiarity fields
+    '000000000000000'  # familiarity with the bot's interactions according to src.auxiliary.Familiarity fields
 )
 KPI_ID = 100
 

@@ -1,3 +1,4 @@
+from datetime import datetime, timedelta
 from typing import Union
 from collections import namedtuple
 from sqlite3 import connect
@@ -12,26 +13,24 @@ import src.log_text as lt
 import src.text as t
 
 
-def registration(update: Update, reply_to_message_id: Union[int, None]):
+def registration(chat: Chat, is_private: bool, message: Message):
     """
     This function is responsible for deciding whether src.interactions.Registration interaction will be started, which
     is the case if the chat is not already registered and is not already registering. Otherwise, the bot sends a
     message, a reply in non-private chats, explaining why the interaction cannot be started.
 
     Args:
-        update (telegram.Update): update received after the command is used.
-        reply_to_message_id (int or None): id of the message that the response will be sent as a reply to. None disables
-            the reply.
+        chat (telegram.Chat): chat that the command is sent in.
+        is_private (bool): whether the chat is private.
+        message (telegram.Message): message that the command is sent in.
     """
-    chat = update.effective_chat
-
     if not (record := a.get_chat_record(chat.id)):  # if the chat is not already registered
         if chat.id not in i.current:  # if the chat is not already registering
             i.Registration(chat.id, chat.type)
         else:  # if the chat is already registering
-            i.current[chat.id].respond(i.Registration.COMMAND, update.effective_message)
+            i.current[chat.id].respond(i.Registration.COMMAND, message)
     else:  # if the chat is already registered
-        chat.send_message(t.ALREADY_REGISTERED[record.language], reply_to_message_id=reply_to_message_id)
+        message.reply_text(t.ALREADY_REGISTERED[is_private][record.language], quote=not is_private)
         i.cl.info(lt.START_BEING_REGISTERED.format(chat.id))
 
 
@@ -319,7 +318,16 @@ def leader_involving_group(record: a.ChatRecord, update: Update):
 
 
 def sending_feedback(record: a.ChatRecord, update: Update):
-    pass
+    chat, message = update.effective_chat, update.effective_message
+    is_private = chat.type == Chat.PRIVATE
+
+    registered = record.registered
+    year, month, day, hour = int(registered[:4]), int(registered[5:7]), int(registered[8:10]), int(registered[11:13])
+
+    if datetime.now() - datetime(year, month, day, hour) >= timedelta(weeks=1):
+        attempt_interaction(COMMANDS[i.SendingFeedback.COMMAND], record, chat, is_private, message)
+    else:
+        message.reply_text(t.FEEDBACK_CONDITION[record.language], quote=not is_private)
 
 
 def deleting_data(record: a.ChatRecord, update: Update):
@@ -360,7 +368,7 @@ COMMANDS: dict[str, Command] = {
     'tell': Command(leader_involving_group, c.LEADER_ROLE, i.NotifyingGroup),
     'ask': Command(leader_involving_group, c.LEADER_ROLE, i.AskingGroup),
     'resign': Command(leader_involving_group, c.LEADER_ROLE, i.ChangingLeader),
-    # 'feedback': Command(sending_feedback, c.ORDINARY_ROLE, i.SendingFeedback),
+    'feedback': Command(sending_feedback, c.ORDINARY_ROLE, i.SendingFeedback),
     'leave': Command(deleting_data, c.ORDINARY_ROLE, i.DeletingData),
 }
 

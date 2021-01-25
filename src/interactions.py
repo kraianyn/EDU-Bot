@@ -1135,10 +1135,11 @@ class AddingEvent(Interaction):
 
         chat_id = update.effective_chat.id
         record = a.get_chat_record(chat_id)
+        familiarity = a.Familiarity(*record.familiarity)
 
         # if the user is answering for the first time whether they want to be notified about the event
-        if not int(record.familiarity.answer_to_notify):
-            Interaction.update_familiarity(chat_id, record.familiarity, answer_to_notify='1')
+        if not int(familiarity.answer_to_notify):
+            Interaction.update_familiarity(chat_id, familiarity, answer_to_notify='1')
 
         has_passed = self.date < datetime.now()
 
@@ -1290,12 +1291,12 @@ class SavingInfo(Interaction):
 
     def handle_info(self, update: Update):
         """
-        This method is called when the bot receives an update after the admin is asked information to save. It checks
-        whether the given information is valid (contains no empty lines) and saves it if it is. Otherwise, the bot sends
-        a message explaining why the given information is invalid.
+        This method is called when the bot receives an update after the admin is asked a piece of information to save.
+        It checks whether the given information is valid (contains no empty lines) and saves it if it is. Otherwise, the
+        bot sends a message explaining why the given information is invalid.
 
         Args:
-            update (telegram.Update): update received after the admin is asked information to save.
+            update (telegram.Update): update received after the admin is asked a piece of information to save.
         """
         if '\n\n' not in (info := update.effective_message.text):
             if not self.is_familiar:  # if the admin is saving info for the first time
@@ -1580,14 +1581,14 @@ class AskingGroup(Interaction):
 
     def handle_question(self, update: Update):
         """
-        This method is called when the bot receives an update after the leader is asked question to ask their group. It
-        saves id of the given question's message and checks whether the group has registered their group chat. If it
+        This method is called when the bot receives an update after the leader is asked a question to ask their group.
+        It saves id of the given question's message and checks whether the group has registered their group chat. If it
         has, the leader is asked whether the future answers should be sent to the group chat, i. e., whether the
         interaction is public. Otherwise, the second part of the interaction (sending the question and displaying the
         answers) is launched.
 
         Args:
-            update (telegram.Update): update received after the leader is asked question to ask their group.
+            update (telegram.Update): update received after the leader is asked a question to ask their group.
         """
         message = update.effective_message
         self.question_message_id = message.message_id
@@ -1933,6 +1934,52 @@ class ChangingLeader(Interaction):
         new_commands += t.LEADER_COMMANDS[new_leader_language]
         BOT.send_message(new_leader_id, t.YOU_NOW_LEADER[new_leader_language].format(new_commands))
         query.message.edit_text(t.NOW_LEADER[self.language].format(new_leader_username))
+        self.terminate()
+
+
+class SendingFeedback(Interaction):
+    COMMAND, UNAVAILABLE_MESSAGE, IS_PRIVATE = 'feedback', None, True
+    ONGOING_MESSAGE, ALREADY_MESSAGE = t.ONGOING_SENDING_FEEDBACK, t.ALREADY_SENDING_FEEDBACK
+
+    def __init__(self, record: a.ChatRecord):
+        super().__init__(record)
+
+        self.send_message((t.FT_ASK_FEEDBACK if not self.is_familiar else t.ASK_FEEDBACK)[self.language])
+        self.next_action = self.save_feedback
+
+    def save_feedback(self, update: Update):
+        """
+        This method is called when the bot receives an update after the user is asked a feedback message. It saves the
+        message by updating the user's record in the database.
+
+        Args:
+            update: (telegram.Update): update received after the user is asked a feedback message.
+        """
+        now, new_feedback = datetime.now().strftime(c.TIME_FORMAT), update.effective_message.text
+
+        connection = connect(c.DATABASE)
+        cursor = connection.cursor()
+
+        if not self.is_familiar:  # if the user is sending feedback for the first time
+            self.update_familiarity(self.chat_id, self.familiarity, feedback='1')
+            updated_feedback = f'{now}\n{new_feedback}'
+        else:  # if the user is sending feedback not for the first time
+            cursor.execute(
+                'SELECT feedback FROM chats WHERE id = ?',
+                (self.chat_id,)
+            )
+            updated_feedback = cursor.fetchone()[0] + f'\n\n{now}\n{new_feedback}'
+
+        cursor.execute(
+            'UPDATE chats SET feedback = ? WHERE id = ?',
+            (updated_feedback, self.chat_id)
+        )
+        connection.commit()
+        cursor.close()
+        connection.close
+        cl.info(lt.SENDS_FEEDBACK.format(self.chat_id, a.cut(new_feedback)))
+
+        self.send_message(t.FEEDBACK_SENT[self.language])
         self.terminate()
 
 

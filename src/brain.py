@@ -8,6 +8,7 @@ import src.auxiliary as a
 from bot_info import USERNAME
 from src.config import DATABASE, LEADER_ROLE
 from src.log_text import UNAVAILABLE_COMMAND
+from src.text import REGISTRATION_NEEDED
 
 
 # ------------------------------------------------------------------------------------------------------- communication
@@ -29,11 +30,11 @@ def command_handler(update: Update, _):
 
     message = update.effective_message
     command_str = message.text[1:].removesuffix(USERNAME).lower()  # without '/' and possible bot mention
-    reply_to_message_id = None if chat.type == Chat.PRIVATE else message.message_id
+    is_private = chat.type == Chat.PRIVATE
 
     if command_str != i.Registration.COMMAND:  # if the command does not start the registration
 
-        if record := a.get_chat_record(update.effective_user.id):  # if the chat is registered
+        if record := a.get_chat_record(update.effective_user.id):  # if the user is registered
             try:
                 command = COMMANDS[command_str]
             except KeyError:  # if the message contains text other than the command
@@ -44,11 +45,15 @@ def command_handler(update: Update, _):
                 command.manager(record, update)
             else:  # if the command is a leader one and the user is not a leader
                 text = command.interaction.UNAVAILABLE_MESSAGE[record.language]
-                chat.send_message(text, reply_to_message_id=reply_to_message_id)
+                message.reply_text(text, quote=not is_private)
                 i.cl.info(UNAVAILABLE_COMMAND.format(record.id, command_str, record.role))
 
+        # if the user is not registered but the group chat is
+        elif group_chat_record := a.get_chat_record(update.effective_chat.id):
+            message.reply_text(REGISTRATION_NEEDED[group_chat_record.language], quote=not is_private)
+
     else:  # if the command starts the registration
-        COMMANDS[i.Registration.COMMAND].manager(update, reply_to_message_id)
+        COMMANDS[i.Registration.COMMAND].manager(chat, is_private, message)
 
 
 def callback_query_handler(update: Update, _):

@@ -15,6 +15,11 @@ PRIVATE_INTERACTION = (
     ''
 )
 YES, NO = ('так', 'yes', 'да'), ('ні', 'no', 'нет')
+REGISTRATION_NEEDED = (
+    '',
+    'REGISTRATION_NEEDED',
+    ''
+)
 
 # -------------------------------------------------------------------------------------------------------- registration
 
@@ -105,9 +110,16 @@ NO_STUDENTS_FOUND = (
 # ------------------------------------------------------------------------------------------- registration (exceptions)
 
 ALREADY_REGISTERED = (
-    '',
-    'ALREADY_REGISTERED',
-    ''
+    (  # for groups
+        '',
+        "[g] ALREADY_REGISTERED",
+        ''
+    ),
+    (  # for students
+        '',
+        "[s] ALREADY_REGISTERED",
+        ''
+    )
 )
 ONGOING_REGISTRATION = (
     '',
@@ -221,9 +233,9 @@ COMMANDS = (  # these string are meant to be formatted to include non-ordinary c
     '/info — see info your group has saved'
     '{}'  # possible /ecampus
     '{}'  # possible non-ordinary commands
-    '\n\n/feedback !— make me better with feedback to my creator\n'
+    '\n\n/feedback — make me better with feedback to my creator\n'
     '/leave — make us strangers again'
-    '{}',
+    '{}',  # possible message for displaying commands for the first time
 
     ''
 )
@@ -248,8 +260,8 @@ LEADER_COMMANDS = (  # leader commands
 
     '\n\n/trust — add an admin\n'
     '/distrust — remove an admin\n'
-    '/tell !— send a message to all of your groupmates\n'
-    '/ask !— ask all of your groupmates a question\n'
+    '/tell — send a message to all of your groupmates\n'
+    '/ask — ask all of your groupmates a question\n'
     '/resign — give away your authorities',
 
     ''
@@ -915,6 +927,42 @@ ONGOING_CHANGING_LEADER = (
 ALREADY_CHANGING_LEADER = (
     '',
     'ALREADY_CHANGING_LEADER',
+    ''
+)
+
+# ---------------------------------------------------------------------------------------------------- sending feedback
+
+FT_ASK_FEEDBACK = (
+    '',
+    'FT_ASK_FEEDBACK',
+    ''
+)
+ASK_FEEDBACK = (
+    '',
+    'ASK_FEEDBACK',
+    ''
+)
+FEEDBACK_SENT = (
+    '',
+    'FEEDBACK_SENT',
+    ''
+)
+
+# --------------------------------------------------------------------------------------- sending feedback (exceptions)
+
+FEEDBACK_CONDITION = (
+    '',
+    'FEEDBACK_CONDITION',
+    ''
+)
+ONGOING_SENDING_FEEDBACK = (
+    '',
+    'ONGOING_SENDING_FEEDBACK',
+    ''
+)
+ALREADY_SENDING_FEEDBACK = (
+    '',
+    'ALREADY_SENDING_FEEDBACK',
     ''
 )
 

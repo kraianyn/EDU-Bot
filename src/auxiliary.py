@@ -8,12 +8,12 @@ from src.log_text import CUT_LENGTH
 
 ChatRecord = namedtuple(
     'ChatRecord',
-    ('id', 'type', 'username', 'language', 'group_id', 'role', 'familiarity', 'registered')
+    ('id', 'type', 'username', 'language', 'group_id', 'role', 'familiarity', 'feedback', 'registered')
 )
 Familiarity = namedtuple(
     'Familiarity',
     ('commands', 'trust', 'distrust', 'new', 'cancel', 'answer_to_notify', 'save', 'delete', 'clear', 'tell', 'ask',
-     'answer', 'resign', 'leave')
+     'answer', 'resign', 'feedback', 'leave')
 )
 
 
@@ -35,7 +35,7 @@ def get_chat_record(chat_id: int) -> Union[ChatRecord, None]:
     record = cursor.fetchone()
 
     try:
-        record = ChatRecord(*record[:6], Familiarity(*record[6]), record[7])
+        record = ChatRecord(*record)
     except TypeError:
         record = None
 
