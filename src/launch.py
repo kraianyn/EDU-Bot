@@ -8,10 +8,9 @@ from telegram.ext import CommandHandler, CallbackQueryHandler, MessageHandler, F
 import src.interactions as i
 import src.brain as b
 import src.managers as m
-from src.config import BOT_LOG, BOT_LOG_FORMAT, TIME_FORMAT
-from src.log_text import CT_STARTS, NT_STARTS
+import src.loggers as l
 
-logging.basicConfig(filename=BOT_LOG, filemode='w', format=BOT_LOG_FORMAT, datefmt=TIME_FORMAT,
+logging.basicConfig(filename=l.BOT_LOG, filemode='w', format=l.BOT_LOG_FORMAT, datefmt=l.TIME_FORMAT,
                     level=logging.INFO)
 
 # ------------------------------------------------------------------------------------------------------------ handlers
@@ -28,4 +27,4 @@ DISPATCHER.add_handler(PollAnswerHandler(b.poll_answer_handler))
 communication_thread = Thread(target=i.UPDATER.start_polling)
 
 communication_thread.start()
-logging.info(CT_STARTS)
+logging.info(l.CT_STARTS)

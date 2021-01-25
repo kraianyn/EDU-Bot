@@ -1,7 +1,6 @@
 from datetime import datetime
 from random import choice
 from typing import Callable, Union
-import logging
 from re import findall
 from sqlite3 import connect
 
@@ -12,14 +11,8 @@ from telegram.error import BadRequest
 import src.auxiliary as a
 from src.bot_info import TOKEN
 import src.config as c
-import src.log_text as lt
+import src.loggers as l
 import src.text as t
-
-cl = logging.getLogger('communication')  # communication logger
-file_handler = logging.FileHandler(c.COMMUNICATION_LOG, 'w', 'utf8')
-file_handler.setFormatter(logging.Formatter(c.LOG_FORMAT, c.TIME_FORMAT))
-cl.addHandler(file_handler)
-cl.setLevel(logging.DEBUG)
 
 UPDATER = Updater(TOKEN)
 BOT = UPDATER.bot
@@ -64,11 +57,12 @@ class Interaction:
             self.language = record.language
             self.group_id = record.group_id
 
-            self.is_familiar = bool(int(getattr(record.familiarity, self.COMMAND)))
-            self.familiarity = None if self.is_familiar else record.familiarity
+            familiarity = a.Familiarity(*record.familiarity)
+            self.is_familiar = bool(int(getattr(familiarity, self.COMMAND)))
+            self.familiarity = None if self.is_familiar else familiarity
 
         current[self.chat_id] = self
-        cl.info(lt.STARTS.format(self.chat_id, type(self).__name__))
+        l.cl.info(l.STARTS.format(self.chat_id, type(self).__name__))
 
     def send_message(self, *args, **kwargs) -> Message:
         """
@@ -118,7 +112,7 @@ class Interaction:
         """
         msg = self.ALREADY_MESSAGE if command == self.COMMAND else self.ONGOING_MESSAGE
         message.reply_text(msg[self.language], quote=message.chat.type != Chat.PRIVATE)
-        cl.info(lt.INTERRUPTS.format(message.from_user.id, command, type(self).__name__))
+        l.cl.info(l.INTERRUPTS.format(message.from_user.id, command, type(self).__name__))
 
     @staticmethod
     def update_familiarity(user_id: int, familiarity: a.Familiarity, **kwargs):
@@ -139,13 +133,13 @@ class Interaction:
         connection.commit()
         cursor.close()
         connection.close()
-        cl.info(lt.BECOMES_FAMILIAR.format(user_id, tuple(kwargs.keys())[0]))
+        l.cl.info(l.BECOMES_FAMILIAR.format(user_id, tuple(kwargs.keys())[0]))
 
     def terminate(self):
         """
         This method terminates the interaction by deleting the instance in src.interactions.current.
         """
-        cl.info(lt.ENDS.format(self.chat_id, type(self).__name__))
+        l.cl.info(l.ENDS.format(self.chat_id, type(self).__name__))
         del current[self.chat_id]
 
 
@@ -341,16 +335,16 @@ class Registration(Interaction):
 
         if '\n' in entered_group_name:
             self.send_message(t.INVALID_GROUP_NAME[self.language], reply_to_message_id=message_id)
-        elif (l := len(entered_group_name)) > c.MAX_GROUP_NAME_LENGTH:
-            text = t.TOO_LONG_GROUP_NAME[self.language].format(l - c.MAX_GROUP_NAME_LENGTH)
+        elif (length := len(entered_group_name)) > c.MAX_GROUP_NAME_LENGTH:
+            text = t.TOO_LONG_GROUP_NAME[self.language].format(length - c.MAX_GROUP_NAME_LENGTH)
             self.send_message(text, reply_to_message_id=message_id)
         else:
-            registered_at = datetime.now().strftime(c.TIME_FORMAT)  # time the chat finished the registration
+            registered_at = datetime.now().strftime(l.TIME_FORMAT)  # time the chat finished the registration
             group_name = entered_group_name.upper()
 
             self.determine_group_id(group_name)
             self.create_record(update, registered_at, group_name)
-            cl.info(lt.REGISTERS.format(self.chat_id, self.group_id))
+            a.update_group_chat_language(self.group_id)
 
             self.send_message(t.INTRODUCTION[self.is_student][self.language])
             self.find_related_chats(entered_group_name)
@@ -378,7 +372,7 @@ class Registration(Interaction):
                 self.is_first = True
 
         else:  # if the chat is the first one from the department to be registered
-            self.group_id *= 1000  # 1000 = 10^3, where 3 is how long a group id within a department (to be added) is
+            self.group_id *= 1000  # 1000 = 10^3, where 3 is how long a group id within a department is
             self.is_first = True
             # the first group to be registered of a department has index 0 within the department
 
@@ -444,6 +438,7 @@ class Registration(Interaction):
         connection.commit()
         cursor.close()
         connection.close()
+        l.cl.info(l.REGISTERS.format(self.chat_id, self.group_id))
 
     def find_related_chats(self, given_group_name: str):
         """
@@ -468,24 +463,26 @@ class Registration(Interaction):
 
         if self.is_student:  # if the new chat is a student
             cursor.execute(  # number of the student's groupmates
-                'SELECT COUNT(id) FROM chats WHERE group_id = ? AND type = 0',
+                'SELECT COUNT(id) FROM chats '
+                'WHERE group_id = ? AND type = 0',
                 (self.group_id,)
             )
             num_groupmates = cursor.fetchone()[0] - 1  # w/o the new student
 
             cursor.execute(  # group chats of the student's group
-                'SELECT id FROM chats WHERE group_id = ? AND type <> 0',
+                'SELECT id FROM chats '
+                'WHERE group_id = ? AND type <> 0',
                 (self.group_id,)
             )
             group_chat_records: tuple[int] = tuple(r[0] for r in cursor.fetchall())
             num_group_chats = len(group_chat_records)
 
-            if num_groupmates:  # if at least 1 of the groupmates has registered
+            if num_groupmates:  # if at least 1 of the student's groupmates has registered
                 if num_group_chats:  # if at least 1 group chat has also been registered
                     text = t.BOTH_FOUND[self.language].format(num_groupmates, num_group_chats)
                 else:  # if no group chats have been registered
                     text = t.GROUPMATES_FOUND[self.language].format(num_groupmates)
-            else:  # if at least 1 group chat has been registered
+            else:  # if the group has registered at least 1 group chat has been registered
                 text = t.GROUP_CHATS_FOUND[self.language].format(num_group_chats)
 
             for chat_id in group_chat_records:
@@ -493,7 +490,8 @@ class Registration(Interaction):
 
         else:  # if the new chat is a chat of a group
             cursor.execute(  # the group's students
-                'SELECT username FROM chats WHERE group_id = ? AND type = 0',
+                'SELECT username FROM chats '
+                'WHERE group_id = ? AND type = 0',
                 (self.group_id,)
             )
             student_usernames = tuple(r[0] for r in cursor.fetchall())
@@ -598,12 +596,12 @@ class LeaderConfirmation(Interaction):
             connection.commit()
             cursor.close()
             connection.close()
-            cl.info(lt.CONFIRMED.format(self.candidate_id))
+            l.cl.info(l.CONFIRMED.format(self.candidate_id))
 
             return True
 
         else:
-            cl.info(lt.NOT_CONFIRMED.format(self.candidate_id))
+            l.cl.info(l.NOT_CONFIRMED.format(self.candidate_id))
             for user_id, language in self.late_claimers:
                 BOT.send_message(user_id, t.CANDIDATE_NOT_CONFIRMED[language].format(self.candidate_username))
 
@@ -640,7 +638,7 @@ def displaying_commands(record: a.ChatRecord, update: Update):
 
     Args: see src.managers.deleting_data.__doc__.
     """
-    kpi_command = t.KPI_CAMPUS_COMMAND[record.language] if record.group_id // 10**5 == c.KPI_ID else ''
+    kpi_command = t.KPI_CAMPUS_COMMAND[record.language] if record.group_id // 10 ** 5 == c.KPI_ID else ''
 
     non_ordinary_commands = ''
     if record.role > c.ORDINARY_ROLE:
@@ -656,7 +654,7 @@ def displaying_commands(record: a.ChatRecord, update: Update):
 
     text = t.COMMANDS[record.language].format(kpi_command, non_ordinary_commands, unfamiliar)
     update.effective_message.reply_text(text, quote=update.effective_chat.type != Chat.PRIVATE)
-    cl.info(lt.COMMANDS.format(record.id))
+    l.cl.info(l.COMMANDS.format(record.id))
 
 
 class AddingAdmin(Interaction):
@@ -693,7 +691,8 @@ class AddingAdmin(Interaction):
         cursor = connection.cursor()
 
         cursor.execute(  # the group's ordinary students
-            'SELECT id, username, language FROM chats WHERE group_id = ? AND role = 0',
+            'SELECT id, username, language FROM chats '
+            'WHERE group_id = ? AND role = 0',
             (self.group_id,)
         )
         ordinary_records: list[tuple[int, str, int]] = cursor.fetchall()
@@ -736,7 +735,7 @@ class AddingAdmin(Interaction):
         connection.commit()
         cursor.close()
         connection.close()
-        cl.info(lt.NOW_ADMIN.format(new_admin_id))
+        l.cl.info(l.NOW_ADMIN.format(new_admin_id))
 
         BOT.send_message(new_admin_id, t.YOU_NOW_ADMIN[new_admin_language].format(t.ADMIN_COMMANDS[new_admin_language]))
         query.message.edit_text(t.NOW_ADMIN[self.language].format(new_admin_username))
@@ -780,7 +779,8 @@ class RemovingAdmin(Interaction):
         cursor = connection.cursor()
 
         cursor.execute(  # the group's admins
-            'SELECT id, username, language FROM chats WHERE group_id = ? AND role = 1',
+            'SELECT id, username, language FROM chats '
+            'WHERE group_id = ? AND role = 1',
             (self.group_id,)
         )
         admin_records: list[tuple[int, str, int]] = cursor.fetchall()
@@ -820,7 +820,7 @@ class RemovingAdmin(Interaction):
         connection.commit()
         cursor.close()
         connection.close()
-        cl.info(lt.NO_MORE_ADMIN.format(self.admin_id))
+        l.cl.info(l.NO_MORE_ADMIN.format(self.admin_id))
 
         msg = t.ASK_TO_NOTIFY_FORMER if self.is_familiar else t.FT_ASK_TO_NOTIFY_FORMER
         self.ask_polar(msg[self.language].format(self.admin_username), query)
@@ -849,7 +849,7 @@ class RemovingAdmin(Interaction):
 
         if answer == 'y':  # if the answer is positive
             BOT.send_message(self.admin_id, t.YOU_NO_MORE_ADMIN[self.admin_language])
-            cl.info(lt.FORMER_NOTIFIED.format(self.admin_id))
+            l.cl.info(l.FORMER_NOTIFIED.format(self.admin_id))
             query.message.edit_text(t.FORMER_ADMIN_NOTIFIED[self.language])
         else:  # if the answer is negative
             query.message.edit_text(t.FORMER_NOT_NOTIFIED[self.language])
@@ -882,7 +882,7 @@ def displaying_events(record: a.ChatRecord, update: Update):
         events = '\n'.join(events)
 
     update.effective_message.reply_text(events, quote=update.effective_chat.type != Chat.PRIVATE)
-    cl.info(lt.EVENTS.format(record.id))
+    l.cl.info(l.EVENTS.format(record.id))
 
 
 def displaying_info(record: a.ChatRecord, update: Update):
@@ -903,7 +903,7 @@ def displaying_info(record: a.ChatRecord, update: Update):
     connection.close()
 
     update.effective_message.reply_text(info, quote=update.effective_chat.type != Chat.PRIVATE)
-    cl.info(lt.INFO.format(record.id))
+    l.cl.info(l.INFO.format(record.id))
 
 
 class AddingEvent(Interaction):
@@ -1071,7 +1071,7 @@ class AddingEvent(Interaction):
         connection.commit()
         cursor.close()
         connection.close()
-        cl.info(lt.ADDS.format(self.chat_id, self.cut_event))
+        l.cl.info(l.ADDS.format(self.chat_id, self.cut_event))
 
     def notify(self):
         """
@@ -1146,23 +1146,23 @@ class AddingEvent(Interaction):
         if answer == 'y':  # if the answer is positive
             if not has_passed:
                 update.effective_chat.send_message('Mock action of considering the agreement')
-                log_msg, msg = lt.AGREES, t.EXPECT_NOTIFICATIONS
+                log_msg, msg = l.AGREES, t.EXPECT_NOTIFICATIONS
             else:
-                log_msg, msg = lt.AGREES_LATE, t.WOULD_EXPECT_NOTIFICATIONS
+                log_msg, msg = l.AGREES_LATE, t.WOULD_EXPECT_NOTIFICATIONS
 
         else:  # if the answer is negative
             if not has_passed:
-                log_msg, msg = lt.DISAGREES, t.EXPECT_NO_NOTIFICATIONS
+                log_msg, msg = l.DISAGREES, t.EXPECT_NO_NOTIFICATIONS
             else:
-                log_msg, msg = lt.DISAGREES_LATE, t.WOULD_EXPECT_NO_NOTIFICATIONS
+                log_msg, msg = l.DISAGREES_LATE, t.WOULD_EXPECT_NO_NOTIFICATIONS
 
-        cl.info(log_msg.format(chat_id, self.cut_event))
+        l.cl.info(log_msg.format(chat_id, self.cut_event))
         event = query.message.text.rpartition('\n\n')[0]
         query.message.edit_text(f"{event}\n\n{msg[record.language]}")
 
         self.num_to_answer -= 1
         if not self.num_to_answer:  # if the student is the last one to have answered
-            cl.info(lt.ALL_ANSWERED_TO_NOTIFY.format(self.group_id, self.cut_event))
+            l.cl.info(l.ALL_ANSWERED_TO_NOTIFY.format(self.group_id, self.cut_event))
 
         del current[chat_id]
 
@@ -1247,7 +1247,7 @@ class CancelingEvent(Interaction):
         connection.commit()
         cursor.close()
         connection.close()
-        cl.info(lt.CANCELS.format(self.chat_id, a.cut(event)))
+        l.cl.info(l.CANCELS.format(self.chat_id, a.cut(event)))
 
         # the event with its weekday in each language
         event = tuple(f'{t.WEEKDAYS[int(event[0])][index]} {event[2:]}' for index in range(len(c.LANGUAGES)))
@@ -1265,7 +1265,8 @@ class CancelingEvent(Interaction):
         cursor = connection.cursor()
 
         cursor.execute(  # chats related to the group w/o the admin
-            'SELECT id, language FROM chats WHERE group_id = ? AND id <> ?',
+            'SELECT id, language FROM chats '
+            'WHERE group_id = ? AND id <> ?',
             (self.group_id, self.chat_id)
         )
         student_records: list[tuple[int, int]] = cursor.fetchall()
@@ -1336,7 +1337,7 @@ class SavingInfo(Interaction):
         connection.commit()
         cursor.close()
         connection.close()
-        cl.info(lt.SAVES.format(self.chat_id, a.cut(info)))
+        l.cl.info(l.SAVES.format(self.chat_id, a.cut(info)))
 
     def notify(self, info: str):
         """
@@ -1439,7 +1440,7 @@ class DeletingInfo(Interaction):
         cursor.close()
         connection.close()
         cut_info = a.cut(info_piece)
-        cl.info(lt.DELETES.format(self.chat_id, cut_info))
+        l.cl.info(l.DELETES.format(self.chat_id, cut_info))
 
         query.message.edit_text(t.INFO_DELETED[self.language].format(cut_info))
         self.terminate()
@@ -1478,7 +1479,7 @@ class ClearingInfo(Interaction):
         if answer == 'y':  # if the answer is positive
             query.message.edit_text(t.INFO_CLEARED[self.language])
         else:  # if the answer is negative
-            cl.info(lt.KEEPS.format(self.chat_id))
+            l.cl.info(l.KEEPS.format(self.chat_id))
             query.message.edit_text(t.INFO_KEPT[self.language])
 
         self.terminate()
@@ -1496,7 +1497,7 @@ class ClearingInfo(Interaction):
         connection.commit()
         cursor.close()
         connection.close()
-        cl.info(lt.CLEARS.format(self.chat_id))
+        l.cl.info(l.CLEARS.format(self.chat_id))
 
 
 class NotifyingGroup(Interaction):
@@ -1530,7 +1531,7 @@ class NotifyingGroup(Interaction):
             BOT.send_message(chat_id, t.GROUP_NOTIFICATION[language].format(self.username))
             message.forward(chat_id)
 
-        cl.info(lt.NOTIFIES.format(self.chat_id, a.cut(message.text)))
+        l.cl.info(l.NOTIFIES.format(self.chat_id, a.cut(message.text)))
         self.send_message(t.GROUP_NOTIFIED[self.language].format(len(related_records)))
         self.terminate()
 
@@ -1543,7 +1544,8 @@ class NotifyingGroup(Interaction):
         cursor = connection.cursor()
 
         cursor.execute(
-            'SELECT id, language FROM chats WHERE group_id = ? AND id <> ?',
+            'SELECT id, language FROM chats '
+            'WHERE group_id = ? AND id <> ?',
             (self.group_id, self.chat_id)
         )
         related_records: list[tuple[int, int]] = cursor.fetchall()
@@ -1610,7 +1612,8 @@ class AskingGroup(Interaction):
         connection = connect(c.DATABASE)
         cursor = connection.cursor()
         cursor.execute(  # group chat of the leader's group
-            'SELECT id, language FROM chats WHERE group_id = ? AND type <> 0',
+            'SELECT id, language FROM chats '
+            'WHERE group_id = ? AND type <> 0',
             (self.group_id,)
         )
         group_chat_record = cursor.fetchone()
@@ -1633,7 +1636,7 @@ class AskingGroup(Interaction):
             self.is_public = update.callback_query.data == 'y'
         except AttributeError:  # if the update is not caused by giving the answer
             return  # no response
-        cl.info((lt.MAKES_PUBLIC if self.is_public else lt.MAKES_NON_PUBLIC).format(self.chat_id))
+        l.cl.info((l.MAKES_PUBLIC if self.is_public else l.MAKES_NON_PUBLIC).format(self.chat_id))
         self.launch()
 
     def launch(self):
@@ -1676,7 +1679,8 @@ class AskingGroup(Interaction):
         connection = connect(c.DATABASE)
         cursor = connection.cursor()
         cursor.execute(  # the leader's groupmates
-            'SELECT id, username, language, familiarity FROM chats WHERE group_id = ? AND type = 0 AND id <> ?',
+            'SELECT id, username, language, familiarity FROM chats '
+            'WHERE group_id = ? AND type = 0 AND id <> ?',
             (self.group_id, self.chat_id)
         )
         asked_records: list[tuple[int, str, int, str]] = cursor.fetchall()
@@ -1734,7 +1738,7 @@ class AskingGroup(Interaction):
             message_id = BOT.send_message(user_id, text, reply_markup=markup[language]).message_id
             self.asked[user_id] = (username, language, familiarity, message_id)
 
-        cl.info(lt.ASKED.format(self.group_id, self.cut_question))
+        l.cl.info(l.ASKED.format(self.group_id, self.cut_question))
         return markup
 
     def handle_response(self, update: Update):
@@ -1762,12 +1766,12 @@ class AskingGroup(Interaction):
         if not query:  # if an answer is given
             answer = message.text.replace('\n\n', '\n')
             self.answered.append((username, answer))
-            log_text, msg = lt.ANSWERS.format(chat.id, a.cut(answer)), t.ANSWER_SENT
+            log_text, msg = l.ANSWERS.format(chat.id, a.cut(answer)), t.ANSWER_SENT
         else:  # if the student has refused to answer
             self.refused.append(username)
-            log_text, msg = lt.REFUSES.format(chat.id), t.REFUSAL_SENT
+            log_text, msg = l.REFUSES.format(chat.id), t.REFUSAL_SENT
 
-        cl.info(log_text)
+        l.cl.info(log_text)
         BOT.edit_message_text(msg[language], chat.id, message_id)
         del self.asked[chat.id]
 
@@ -1789,7 +1793,7 @@ class AskingGroup(Interaction):
                 BOT.send_message(self.group_chat[0], text)
 
             del current[self.group_id]
-            cl.info(lt.ALL_ANSWERED.format(self.group_id))
+            l.cl.info(l.ALL_ANSWERED.format(self.group_id))
 
         del current[chat.id]
 
@@ -1830,7 +1834,7 @@ class AskingGroup(Interaction):
             del current[user_id]  # the student is no longer having the interaction
 
         del current[self.group_id]  # the group is no longer having the interaction
-        cl.info(lt.TERMINATES.format(self.chat_id))
+        l.cl.info(l.TERMINATES.format(self.chat_id))
         self.send_message(t.GROUP_ASKING_TERMINATED[self.language])
 
 
@@ -1872,14 +1876,16 @@ class ChangingLeader(Interaction):
         cursor = connection.cursor()
 
         cursor.execute(  # the group's admins
-            'SELECT id, username, language FROM chats WHERE group_id = ? AND role = 1',
+            'SELECT id, username, language FROM chats '
+            'WHERE group_id = ? AND role = 1',
             (self.group_id,)
         )
         candidate_records: list[tuple[int, str, int]] = cursor.fetchall()
 
         if not candidate_records:  # if the are no admins in the group
             cursor.execute(  # the leader's groupmates
-                'SELECT id, username, language FROM chats WHERE group_id = ? AND role = 0 AND type = 0',
+                'SELECT id, username, language FROM chats '
+                'WHERE group_id = ? AND role = 0 AND type = 0',
                 (self.group_id,)
             )
             candidate_records: list[tuple[int, str, int]] = cursor.fetchall()
@@ -1928,7 +1934,7 @@ class ChangingLeader(Interaction):
         connection.commit()
         cursor.close()
         connection.close()
-        cl.info(lt.NOW_LEADER.format(new_leader_id))
+        l.cl.info(l.NOW_LEADER.format(new_leader_id))
 
         new_commands = '' if self.to_admin else t.ADMIN_COMMANDS[new_leader_language]
         new_commands += t.LEADER_COMMANDS[new_leader_language]
@@ -1955,7 +1961,7 @@ class SendingFeedback(Interaction):
         Args:
             update: (telegram.Update): update received after the user is asked a feedback message.
         """
-        now, new_feedback = datetime.now().strftime(c.TIME_FORMAT), update.effective_message.text
+        now, new_feedback = datetime.now().strftime(l.TIME_FORMAT), update.effective_message.text
 
         connection = connect(c.DATABASE)
         cursor = connection.cursor()
@@ -1977,7 +1983,7 @@ class SendingFeedback(Interaction):
         connection.commit()
         cursor.close()
         connection.close
-        cl.info(lt.SENDS_FEEDBACK.format(self.chat_id, a.cut(new_feedback)))
+        l.cl.info(l.SENDS_FEEDBACK.format(self.chat_id, a.cut(new_feedback)))
 
         self.send_message(t.FEEDBACK_SENT[self.language])
         self.terminate()
@@ -2014,23 +2020,20 @@ class DeletingData(Interaction):
             self.update_familiarity(self.chat_id, self.familiarity, leave='1')
 
         if answer == 'y':  # if the answer is positive
-            if self.delete_record():
-                cl.info(lt.LEAVES.format(self.group_id))
-            cl.info(lt.LEAVES.format(self.chat_id, self.group_id))
+            self.delete_record()
+            a.update_group_chat_language(self.group_id)
             query.message.edit_text(t.DATA_DELETED[self.language])
         else:  # if the answer is negative
-            cl.info(lt.STAYS.format(self.chat_id))
+            l.cl.info(l.STAYS.format(self.chat_id))
             query.message.edit_text(t.DATA_KEPT[self.language])
 
         self.terminate()
 
-    def delete_record(self) -> bool:
+    def delete_record(self):
         """
         This method is the last step of deleting the user's data, which the interaction is terminated after. It deletes
         the user's record in the database. If the user is the last registered student from their group, its record and
         records of the group's group chats are also deleted.
-
-        Returns (bool): whether the user is the last registered student from their group.
         """
         is_last = False
 
@@ -2038,7 +2041,8 @@ class DeletingData(Interaction):
         cursor = connection.cursor()
 
         cursor.execute(  # number of the group's students
-            'SELECT COUNT(id) FROM chats WHERE group_id = ? AND type = 0',
+            'SELECT COUNT(id) FROM chats '
+            'WHERE group_id = ? AND type = 0',
             (self.group_id,)
         )
 
@@ -2061,5 +2065,6 @@ class DeletingData(Interaction):
         connection.commit()
         cursor.close()
         connection.close()
-
-        return is_last
+        l.cl.info(l.LEAVES.format(self.chat_id, self.group_id))
+        if is_last:
+            l.cl.info(l.LEAVES.format(self.group_id))

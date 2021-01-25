@@ -1,10 +1,22 @@
+import logging
+
+BOT_LOG, BOT_LOG_FORMAT = '../log/bot.log', '%(levelname)s | %(asctime)s.%(msecs)d | %(name)s | %(message)s'
+COMMUNICATION_LOG, NOTIFICATION_LOG = '../log/communication.log', '../log/notification.log'
+LOG_FORMAT, TIME_FORMAT = '%(levelname)s | %(asctime)s | %(message)s', '%Y.%m.%d %H:%M:%S'
+
+# ------------------------------------------------------------------------------------------------------------- loggers
+
+cl = logging.getLogger('communication')  # communication logger
+file_handler = logging.FileHandler(COMMUNICATION_LOG, 'w', 'utf8')
+file_handler.setFormatter(logging.Formatter(LOG_FORMAT, TIME_FORMAT))
+cl.addHandler(file_handler)
+cl.setLevel(logging.DEBUG)
+
 # ----------------------------------------------------------------------------------------------------------------- bot
 
 CT_STARTS, NT_STARTS = 'communication thread starts', 'notification thread starts'
 
 # ------------------------------------------------------------------------------------------------------- communication
-
-CUT_LENGTH = 40  # included user text is cut to this length, linebreaks are also replaced with spaces
 
 UNAVAILABLE_COMMAND = '{} uses /{} with role {}'
 STARTS_NOT_PRIVATELY = '{} is invited to continue {} privately'
@@ -12,7 +24,8 @@ STARTS, ENDS, INTERRUPTS = '{} starts {}', '{} ends {}', '{} uses /{} during {}'
 BECOMES_FAMILIAR = '{} becomes familiar with {}'
 
 START_BEING_REGISTERED, REGISTERS = '{} uses /start being registered', '{} registers as from {}'
-LEAVE_NOT_PRIVATELY, LEAVES, STAYS = '{} uses /leave in non-private {}', '{} leaves from {}', '{} refuses to leave'
+GROUP_LANGUAGE_UPDATED = 'language of {} is now {}, spoken by {}'
+LEAVE_NOT_PRIVATELY, LEAVES, STAYS = '{} uses /leave in non-private {}', '{} leaves', '{} refuses to leave'
 
 COMMANDS = '{} displays commands'
 

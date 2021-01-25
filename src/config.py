@@ -2,10 +2,6 @@ from re import compile
 
 from telegram import Chat
 
-BOT_LOG, BOT_LOG_FORMAT = '../log/bot.log', '%(levelname)s | %(asctime)s.%(msecs)d | %(name)s | %(message)s'
-COMMUNICATION_LOG, NOTIFICATION_LOG = '../log/communication.log', '../log/notification.log'
-LOG_FORMAT, TIME_FORMAT = '%(levelname)s | %(asctime)s | %(message)s', '%Y.%m.%d %H:%M:%S'
-
 LANGUAGES = ('українська', 'English', 'русский')
 CHAT_TYPES = (Chat.PRIVATE, Chat.GROUP, Chat.SUPERGROUP)
 ORDINARY_ROLE, ADMIN_ROLE, LEADER_ROLE = 0, 1, 2

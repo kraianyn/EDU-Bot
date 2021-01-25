@@ -4,7 +4,7 @@ from collections import namedtuple
 from sqlite3 import connect
 
 from src.config import DATABASE
-from src.log_text import CUT_LENGTH
+import src.loggers as l
 
 ChatRecord = namedtuple(
     'ChatRecord',
@@ -62,6 +62,34 @@ def string_sort_key(string: str) -> int:
     return 0
 
 
+def update_group_chat_language(group_id: int):
+    """
+    This function sets language of the group's group chat to the most popular among its students.
+
+    Args:
+        group_id (int): id of the group that group chat's language will be updated of.
+    """
+    connection = connect(DATABASE)
+    cursor = connection.cursor()
+    cursor.execute(
+        'SELECT language, COUNT(language) AS spoken_by '
+        'FROM chats WHERE group_id = ? AND type = 0 '
+        'GROUP BY language '
+        'ORDER BY spoken_by DESC',
+        (group_id,)
+    )
+    common_language, spoken_by = cursor.fetchone()
+    cursor.execute(
+        'UPDATE chats SET language = ? '
+        'WHERE group_id = ? AND type <> 0',
+        (common_language, group_id,)
+    )
+    connection.commit()
+    cursor.close()
+    connection.close()
+    l.cl.info(l.GROUP_LANGUAGE_UPDATED.format(group_id, common_language, spoken_by))
+
+
 def str_to_datetime(string: str) -> datetime:
     """
     This function converts string that contains date in the beginning to datetime.datetime of the date. The date's
@@ -82,4 +110,5 @@ def str_to_datetime(string: str) -> datetime:
 
 
 def cut(string: str):
-    return (string if len(string) <= CUT_LENGTH else f'{string[:CUT_LENGTH - 1]}…').replace('\n', ' ')
+    max_length = 40
+    return (string if len(string) <= max_length else f'{string[:max_length - 1]}…').replace('\n', ' ')

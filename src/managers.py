@@ -1,5 +1,4 @@
 from datetime import datetime, timedelta
-from typing import Union
 from collections import namedtuple
 from sqlite3 import connect
 
@@ -9,7 +8,7 @@ import src.interactions as i
 import src.auxiliary as a
 from src.bot_info import USERNAME
 import src.config as c
-import src.log_text as lt
+import src.loggers as l
 import src.text as t
 
 
@@ -31,7 +30,7 @@ def registration(chat: Chat, is_private: bool, message: Message):
             i.current[chat.id].respond(i.Registration.COMMAND, message)
     else:  # if the chat is already registered
         message.reply_text(t.ALREADY_REGISTERED[is_private][record.language], quote=not is_private)
-        i.cl.info(lt.START_BEING_REGISTERED.format(chat.id))
+        l.cl.info(l.START_BEING_REGISTERED.format(chat.id))
 
 
 def leader_confirmation(record: a.ChatRecord, update: Update):
@@ -47,7 +46,7 @@ def leader_confirmation(record: a.ChatRecord, update: Update):
 
     if record.role == c.LEADER_ROLE:  # is the user is already a leader
         message.reply_text(t.ALREADY_LEADER[record.language], quote=not is_private)
-        i.cl.info(lt.CLAIM_BEING_LEADER.format(record.id))
+        l.cl.info(l.CLAIM_BEING_LEADER.format(record.id))
         return
 
     connection = connect(c.DATABASE)
@@ -86,7 +85,7 @@ def leader_confirmation(record: a.ChatRecord, update: Update):
                     interaction: i.LeaderConfirmation = i.current[group_chat_record[0]]
 
                     if not interaction.is_candidate(record.id):  # if the candidate's groupmate
-                        i.cl.info(lt.CLAIMS_LATE.format(record.id, interaction.candidate_id))
+                        l.cl.info(l.CLAIMS_LATE.format(record.id, interaction.candidate_id))
                         interaction.add_claimer(record.id, record.language)
                         text = t.ALREADY_CLAIMED[record.language].format(interaction.candidate_username)
                         message.reply_text(text, quote=not is_private)
@@ -97,15 +96,15 @@ def leader_confirmation(record: a.ChatRecord, update: Update):
                 difference = c.MIN_GROUPMATES_FOR_LEADER_CONFORMATION - num_groupmates
                 text = t.NOT_ENOUGH_FOR_LEADER_CONFIRMATION[record.language].format(num_groupmates, difference)
                 message.reply_text(text, quote=not is_private)
-                i.cl.info(lt.CLAIM_WITH_NOT_ENOUGH.format(record.id, num_groupmates))
+                l.cl.info(l.CLAIM_WITH_NOT_ENOUGH.format(record.id, num_groupmates))
 
         else:  # if the group has not registered a group chat
             message.reply_text(t.GROUP_CHAT_NEEDED[record.language], quote=not is_private)
-            i.cl.info(lt.CLAIM_WITHOUT_GROUP_CHAT.format(record.id))
+            l.cl.info(l.CLAIM_WITHOUT_GROUP_CHAT.format(record.id))
 
     else:  # if there is already a leader in the group
         message.reply_text(t.ALREADY_LEADER_IN_GROUP[record.language], quote=not is_private)
-        i.cl.info(lt.CLAIM_WITH_LEADER.format(record.id))
+        l.cl.info(l.CLAIM_WITH_LEADER.format(record.id))
 
     cursor.close()
     connection.close()
@@ -146,10 +145,10 @@ def adding_admin(record: a.ChatRecord, update: Update):
         attempt_interaction(COMMANDS[i.AddingAdmin.COMMAND], record, chat, is_private, message)
     elif num_students > 1:  # if adding 1 more admin will exceed the limit
         message.reply_text(t.ADMIN_LIMIT_REACHED[record.language], quote=not is_private)
-        i.cl.info(lt.TRUST_OVER_LIMIT.format(record.id, num_admins, num_students))
+        l.cl.info(l.TRUST_OVER_LIMIT.format(record.id, num_admins, num_students))
     else:  # if the leader is the only registered student from the group
         message.reply_text(t.NO_GROUPMATES_TO_TRUST[record.language], quote=not is_private)
-        i.cl.info(lt.TRUST_ALONE.format(record.id, record.group_id))
+        l.cl.info(l.TRUST_ALONE.format(record.id, record.group_id))
 
 
 def removing_admin(record: a.ChatRecord, update: Update):
@@ -178,7 +177,7 @@ def removing_admin(record: a.ChatRecord, update: Update):
         attempt_interaction(COMMANDS[i.RemovingAdmin.COMMAND], record, chat, is_private, message)
     else:  # if there are no admins in the group
         message.reply_text(t.ALREADY_NO_ADMINS[record.language], quote=not is_private)
-        i.cl.info(lt.DISTRUST_WITHOUT_ADMINS.format(record.id, record.group_id))
+        l.cl.info(l.DISTRUST_WITHOUT_ADMINS.format(record.id, record.group_id))
 
 
 def connecting_ecampus(record: a.ChatRecord, update: Update):
@@ -224,7 +223,7 @@ def canceling_event(record: a.ChatRecord, update: Update):
         attempt_interaction(COMMANDS[i.CancelingEvent.COMMAND], record, chat, is_private, message, events)
     else:
         message.reply_text(t.ALREADY_NO_EVENTS[record.language], quote=not is_private)
-        i.cl.info(lt.CANCEL_WITHOUT_EVENTS.format(record.id))
+        l.cl.info(l.CANCEL_WITHOUT_EVENTS.format(record.id))
 
 
 def saving_info(record: a.ChatRecord, update: Update):
@@ -272,7 +271,7 @@ def deleting_info(record: a.ChatRecord, update: Update):
 
     else:
         message.reply_text(t.ALREADY_NO_INFO[record.language], quote=not is_private)
-        i.cl.info(lt.DELETE_WITHOUT_INFO.format(record.id, command))
+        l.cl.info(l.DELETE_WITHOUT_INFO.format(record.id, command))
 
 
 def leader_involving_group(record: a.ChatRecord, update: Update):
@@ -308,7 +307,7 @@ def leader_involving_group(record: a.ChatRecord, update: Update):
         attempt_interaction(COMMANDS[command], record, chat, is_private, message)
 
     else:  # if the leader is the only registered one from the group
-        i.cl.info(lt.INVOLVING_GROUP_ALONE.format(record.id, command))
+        l.cl.info(l.INVOLVING_GROUP_ALONE.format(record.id, command))
 
         if is_communicative:  # if the command is /tell or /ask
             msg = t.NO_GROUPMATES_TO_NOTIFY if command == i.NotifyingGroup.COMMAND else t.NO_GROUPMATES_TO_ASK
@@ -347,7 +346,7 @@ def deleting_data(record: a.ChatRecord, update: Update):
         attempt_interaction(COMMANDS[i.DeletingData.COMMAND], record, chat, True, update.effective_message)
     else:
         chat.send_message(t.LEAVING_IN_GROUPS[record.language], reply_to_message_id=update.effective_message.message_id)
-        i.cl.info(lt.LEAVE_NOT_PRIVATELY.format(record.id, chat.id))
+        l.cl.info(l.LEAVE_NOT_PRIVATELY.format(record.id, chat.id))
 
 
 Command = namedtuple('Command', ('manager', 'role', 'interaction'))
@@ -397,7 +396,7 @@ def attempt_interaction(command: Command, record: a.ChatRecord, chat: Chat, is_p
             # if the interaction is private but the chat is not
             if command.interaction.IS_PRIVATE and not is_private:
                 chat.send_message(t.PRIVATE_INTERACTION[record.language], reply_to_message_id=message.message_id)
-                i.cl.info(lt.STARTS_NOT_PRIVATELY.format(record.id, command.interaction.__name__))
+                l.cl.info(l.STARTS_NOT_PRIVATELY.format(record.id, command.interaction.__name__))
 
             command.interaction(record, *args)
 
@@ -407,4 +406,4 @@ def attempt_interaction(command: Command, record: a.ChatRecord, chat: Chat, is_p
     else:  # if the command is an admin one and the user is not an admin
         text = command.interaction.UNAVAILABLE_MESSAGE[record.language]
         chat.send_message(text, reply_to_message_id=None if is_private else message.message_id)
-        i.cl.info(lt.UNAVAILABLE_COMMAND.format(record.id, command.interaction.COMMAND, record.role))
+        l.cl.info(l.UNAVAILABLE_COMMAND.format(record.id, command.interaction.COMMAND, record.role))

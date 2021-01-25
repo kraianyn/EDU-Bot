@@ -7,7 +7,7 @@ from src.managers import COMMANDS
 import src.auxiliary as a
 from bot_info import USERNAME
 from src.config import DATABASE, LEADER_ROLE
-from src.log_text import UNAVAILABLE_COMMAND
+from src.loggers import cl, UNAVAILABLE_COMMAND
 from src.text import REGISTRATION_NEEDED
 
 
@@ -46,7 +46,7 @@ def command_handler(update: Update, _):
             else:  # if the command is a leader one and the user is not a leader
                 text = command.interaction.UNAVAILABLE_MESSAGE[record.language]
                 message.reply_text(text, quote=not is_private)
-                i.cl.info(UNAVAILABLE_COMMAND.format(record.id, command_str, record.role))
+                cl.info(UNAVAILABLE_COMMAND.format(record.id, command_str, record.role))
 
         # if the user is not registered but the group chat is
         elif group_chat_record := a.get_chat_record(update.effective_chat.id):
