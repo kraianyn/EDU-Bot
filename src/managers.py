@@ -73,7 +73,7 @@ def leader_confirmation(record: a.ChatRecord, update: Update):
             num_groupmates = cursor.fetchone()[0] - 1
 
             # if many enough students in the group are registered
-            if num_groupmates >= c.MIN_GROUPMATES_FOR_LEADER_CONFORMATION:
+            if num_groupmates >= c.MIN_GROUPMATES_FOR_LC:
 
                 is_having = group_chat_record[0] in i.current  # whether the group chat is having an interaction
                 # if the group chat is not having an interaction or the interaction is not leader confirmation
@@ -93,7 +93,7 @@ def leader_confirmation(record: a.ChatRecord, update: Update):
                         interaction.respond(i.LeaderConfirmation.COMMAND, message)
 
             else:  # if there is not enough registered students from the group
-                difference = c.MIN_GROUPMATES_FOR_LEADER_CONFORMATION - num_groupmates
+                difference = c.MIN_GROUPMATES_FOR_LC - num_groupmates
                 text = t.NOT_ENOUGH_FOR_LEADER_CONFIRMATION[record.language].format(num_groupmates, difference)
                 message.reply_text(text, quote=not is_private)
                 l.cl.info(l.CLAIM_WITH_NOT_ENOUGH.format(record.id, num_groupmates))

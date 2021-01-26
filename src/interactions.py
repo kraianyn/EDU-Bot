@@ -273,18 +273,24 @@ class Registration(Interaction):
         except AttributeError:  # if the update is not caused by choosing the EDU
             return  # no response
 
+        departments = self.get_departments()
         departments = [
-            [InlineKeyboardButton(name, callback_data=str(department_id))]
-            for department_id, name in enumerate(self.get_departments())
+            [
+                InlineKeyboardButton(name, callback_data=str(department_id))
+                for department_id, name in row
+            ] for row in [
+                departments[i:i + 3] for i in range(0, len(departments), 3)
+            ]
         ]
         markup = InlineKeyboardMarkup(departments)
 
         query.message.edit_text(t.ASK_DEPARTMENT[self.language], reply_markup=markup)
         self.next_action = self.ask_group_name
 
-    def get_departments(self) -> list[str]:
+    def get_departments(self) -> list[tuple[int, str]]:
         """
-        Returns (list[str]): sorted list of departments of the chosen EDU.
+        Returns (list[tuple[int, str]]): departments of the chosen EDU, sorted by their names. Namely, list of tuples
+            containing the department's id and name.
         """
         connection = connect(c.DATABASE)
         cursor = connection.cursor()
@@ -298,7 +304,7 @@ class Registration(Interaction):
         cursor.close()
         connection.close()
 
-        return departments.split()
+        return list(enumerate(departments.split()))
 
     def ask_group_name(self, update: Update):
         """
@@ -347,7 +353,7 @@ class Registration(Interaction):
             a.update_group_chat_language(self.group_id)
 
             self.send_message(t.INTRODUCTION[self.is_student][self.language])
-            self.find_related_chats(entered_group_name)
+            self.report_on_related_chats(entered_group_name)
             self.terminate()
 
     def determine_group_id(self, group_name: str):
@@ -440,15 +446,16 @@ class Registration(Interaction):
         connection.close()
         l.cl.info(l.REGISTERS.format(self.chat_id, self.group_id))
 
-    def find_related_chats(self, given_group_name: str):
+    def report_on_related_chats(self, given_group_name: str):
         """
         This method is the third and the last step of finishing the registration, which the interaction is terminated
-        after. It looks for records in the database that are related to (have the same group id with) the chat.
+        after. It makes the bot show information about registered chats that are related to (have the same group id
+        with) the new chat.
 
-        If the chat is private (the new user is a student), the method makes the bot show how many of their groupmates
-        have already registered and how many group chats the group has registered (most groups only have one). Otherwise
-        (the new chat is a chat of a group), the method makes the bot show which students from the group have already
-        registered.
+        If the chat is private (the new user is a student) and has made the number of registered students from the
+        group, defined as src.config.MIN_GROUPMATES_FOR_LC, big enough for leader confirmation (LC), the students are
+        notified about it. If the group has not registered a group chat, they are also reminded to do it, since it is
+        necessary for LC.
 
         Args:
             given_group_name (str): the given group name.
@@ -462,31 +469,30 @@ class Registration(Interaction):
         cursor = connection.cursor()
 
         if self.is_student:  # if the new chat is a student
-            cursor.execute(  # number of the student's groupmates
-                'SELECT COUNT(id) FROM chats '
-                'WHERE group_id = ? AND type = 0',
-                (self.group_id,)
+            cursor.execute(  # the new student's groupmates
+                'SELECT id, language FROM chats '
+                'WHERE group_id = ? AND type = 0 AND id <> ?',
+                (self.group_id, self.chat_id)
             )
-            num_groupmates = cursor.fetchone()[0] - 1  # w/o the new student
+            groupmate_records: list[tuple[int, int]] = cursor.fetchall()
 
             cursor.execute(  # group chats of the student's group
                 'SELECT id FROM chats '
                 'WHERE group_id = ? AND type <> 0',
                 (self.group_id,)
             )
-            group_chat_records: tuple[int] = tuple(r[0] for r in cursor.fetchall())
-            num_group_chats = len(group_chat_records)
+            group_chat_records: list[tuple[int]] = cursor.fetchall()
 
-            if num_groupmates:  # if at least 1 of the student's groupmates has registered
-                if num_group_chats:  # if at least 1 group chat has also been registered
-                    text = t.BOTH_FOUND[self.language].format(num_groupmates, num_group_chats)
-                else:  # if no group chats have been registered
-                    text = t.GROUPMATES_FOUND[self.language].format(num_groupmates)
-            else:  # if the group has registered at least 1 group chat has been registered
-                text = t.GROUP_CHATS_FOUND[self.language].format(num_group_chats)
+            for r in group_chat_records:
+                BOT.send_message(r[0], choice(t.NEW_GROUPMATE[self.language]).format(self.username))
 
-            for chat_id in group_chat_records:
-                BOT.send_message(chat_id, choice(t.NEW_GROUPMATE[self.language]).format(self.username))
+            num_groupmates, num_group_chats = len(groupmate_records), len(group_chat_records)
+            text, lc_available_msg = t.report_on_related_chats(num_groupmates, num_group_chats, self.language)
+
+            if lc_available_msg:
+                for user_id, language in groupmate_records:
+                    text = t.LC_NOW_AVAILABLE[language].format(c.MIN_GROUPMATES_FOR_LC + 1, lc_available_msg[language])
+                    BOT.send_message(user_id, text)
 
         else:  # if the new chat is a chat of a group
             cursor.execute(  # the group's students
@@ -559,7 +565,7 @@ class LeaderConfirmation(Interaction):
             if not answer.option_ids[0]:  # if the answer is positive
                 self.num_positive_votes += 1
 
-            if self.num_votes == c.MIN_GROUPMATES_FOR_LEADER_CONFORMATION:  # if many enough groupmates have answered
+            if self.num_votes == c.MIN_GROUPMATES_FOR_LC:  # if many enough groupmates have answered
 
                 if self.handle_result():
                     candidate_msg, group_msg = t.YOU_CONFIRMED, t.LEADER_CONFIRMED
@@ -586,7 +592,7 @@ class LeaderConfirmation(Interaction):
 
         Returns (bool): whether the candidate is confirmed to be the leader.
         """
-        if self.num_positive_votes / c.MIN_GROUPMATES_FOR_LEADER_CONFORMATION > .5:
+        if self.num_positive_votes / c.MIN_GROUPMATES_FOR_LC > .5:
             connection = connect(c.DATABASE)
             cursor = connection.cursor()
             cursor.execute(  # making the candidate the group's leader
@@ -646,11 +652,12 @@ def displaying_commands(record: a.ChatRecord, update: Update):
         if record.role > c.ADMIN_ROLE:
             non_ordinary_commands += t.LEADER_COMMANDS[record.language]
 
-    if int(record.familiarity.commands):
+    familiarity = a.Familiarity(*record.familiarity)
+    if int(familiarity.commands):
         unfamiliar = ''
     else:
         unfamiliar = t.FT_COMMANDS[record.language]
-        Interaction.update_familiarity(record.id, record.familiarity, commands='1')
+        Interaction.update_familiarity(record.id, familiarity, commands='1')
 
     text = t.COMMANDS[record.language].format(kpi_command, non_ordinary_commands, unfamiliar)
     update.effective_message.reply_text(text, quote=update.effective_chat.type != Chat.PRIVATE)

@@ -1,3 +1,7 @@
+from typing import Union
+
+from config import MIN_GROUPMATES_FOR_LC
+
 # -------------------------------------------------------------------------------------------------------------- casual
 
 WEEKDAYS = (
@@ -70,19 +74,64 @@ INTRODUCTION = (
         ''
     )
 )
-BOTH_FOUND = (
-    '',
-    '{} groupmate(s) and {} group chat(s) found',
+GROUPMATES_FOUND = (
+    'До речі, {}{}{}',
+    'By the way, {} already registered{}{}',
     ''
 )
-GROUPMATES_FOUND = (
-    '',
-    '{} groupmate(s) found',
+GROUPMATES_ = (
+    (
+        '{} з твоїх одногрупників вже зареєструвалися',
+        '{} of your groupmates have',
+        ''
+    ),
+    (
+        'один з твоїх одногрупників вже зареєструвався',
+        'one of your groupmates has',
+        ''
+    )
+)
+GROUP_CHATS_ALSO_FOUND_ = (
+    ', і група зареєструвала {}',
+    ', and {} also been registered',
+    ''
+)
+GROUP_CHATS_ = (
+    (
+        'ваш груповий чат',
+        'your group chat has',
+        ''
+    ),
+    (
+        'кілька групових чатів',
+        '{} group chats have',
+        ''
+    )
+)
+LC_AVAILABLE_ = (
+    (
+        ", і цього достатньо, щоб з'ясувати, хто з вас є старостою. Бракує лише групового чата, просто напишіть "
+        "/start там. Потім, якщо староста ти, скористайся командою /claim.",
+        ", and that's just enough to figure out who your leader is. The only thing that's missing is your group chat, "
+        "just use /start there. Then, if you are the group's leader, use /claim.",
+        ''
+    ),
+    (
+        '. Тепер, якщо ти староста, скористайся командою /claim.',
+        ". Now, if you are the group's leader, use /claim.",
+        ''
+    )
+)
+LC_NOW_AVAILABLE = (
+    '{}-ий студент з вашої групи щойно зареєструвався{}',
+    'The {}th student from your group has just registered{}',
     ''
 )
 GROUP_CHATS_FOUND = (
-    '',
-    '{} group chat(s) found',
+    "До речі, ви вже зарестрували {}, але ти перший студент. Скажи своїм одногрупникам зареєструватися теж, щоб ми "
+    "могли з'ясувати, хто з вас староста, і почати використовувати мої можливості)",
+    'By the way, {} already been registered by your group, but you are the first student to register. Tell your '
+    'groupmates to do it as well so that we can figure out who your leader is and start having some fun)',
     ''
 )
 NONE_FOUND = (
@@ -98,14 +147,58 @@ NEW_GROUPMATE = (
 )
 STUDENTS_FOUND = (
     '',
-    '{} student(s) found:\n\n{}',
+    'By the way, here are students that have already registered:\n\n{}',
     ''
 )
 NO_STUDENTS_FOUND = (
     '',
-    '{} NO_STUDENTS_FOUND',
+    'By the way, none of you have registered so far. Everyone, just send me /start privately so that we can figure out '
+    'who your leader is and start having some fun)',
     ''
 )
+
+
+def report_on_related_chats(num_groupmates: int, num_group_chats: int, language: int) \
+        -> tuple[str, Union[None, tuple[tuple[str]]]]:
+    """
+    This function generates a text message containing information about how many of the student's groupmates have
+    registered and how many group chats their group has registered (most groups only have 1). It also determines whether
+    the student has made the number of registered students from the group big enough for leader confirmation (LC).
+
+    Args:
+        num_groupmates (int): number of the student's registered groupmates.
+        num_group_chats (int): number of group chats that the student's group has registered.
+        language (int): index of the student's language, according to src.config.LANGUAGES.
+
+    Returns (tuple[str, None or tuple[tuple[str]]]): text message containing information described above, and tuple of
+        strings describing actions to start LC (None if the student has not made the number of registered students from
+        the group big enough for LC).
+    """
+    def group_chats(num_group_chats: int, language: int) -> str:
+        return GROUP_CHATS_[0][language] if num_group_chats == 1 else GROUP_CHATS_[1][language].format(num_group_chats)
+
+    if num_groupmates:
+        groupmates_ = GROUPMATES_[0][language].format(num_groupmates) if num_groupmates != 1 \
+            else GROUPMATES_[1][language]
+
+        group_chats_registered = bool(num_group_chats)
+        group_chats_ = GROUP_CHATS_ALSO_FOUND_[language].format(group_chats(num_group_chats, language)) \
+            if group_chats_registered else ''
+
+        lc_now_available = num_groupmates == MIN_GROUPMATES_FOR_LC
+        if lc_now_available:
+            lc_available_msg = LC_AVAILABLE_[group_chats_registered]
+            lc_available_ = lc_available_msg[language]
+        else:
+            lc_available_, lc_available_msg = '', None
+
+        report_on_related_chats = GROUPMATES_FOUND[language].format(groupmates_, group_chats_, lc_available_)
+        return report_on_related_chats, lc_available_msg
+
+    else:
+        report_on_related_chats = GROUP_CHATS_FOUND[language].format(group_chats(num_group_chats, language))
+        return report_on_related_chats, None
+
 
 # ------------------------------------------------------------------------------------------- registration (exceptions)
 
