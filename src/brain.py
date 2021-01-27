@@ -5,7 +5,7 @@ from telegram import Update, Chat
 import src.interactions as i
 from src.managers import COMMANDS
 import src.auxiliary as a
-from bot_info import USERNAME
+from src.bot_info import USERNAME
 from src.config import DATABASE, LEADER_ROLE
 from src.loggers import cl, UNAVAILABLE_COMMAND
 from src.text import REGISTRATION_NEEDED

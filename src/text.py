@@ -242,7 +242,7 @@ CONFIRMATION_POLL_SENT = (
     "My creator has coded me to be incredulous, so I'm gonna ask your groupmates just to make sure",
     ''
 )
-LEADER_CONFIRMATION_QUESTION = (
+LC_QUESTION = (
     '',
     '{} LEADER_CONFIRMATION_QUESTION',
     ''
@@ -254,7 +254,7 @@ LEADER_CONFIRMED = (
 )
 YOU_CONFIRMED = (
     '',
-    'YOU_CONFIRMED',
+    'YOU_CONFIRMED. Here are commands that are now available for you:{}',
     ''
 )
 
@@ -275,22 +275,22 @@ GROUP_CHAT_NEEDED = (
     'GROUP_CHAT_NEEDED',
     ''
 )
-NOT_ENOUGH_FOR_LEADER_CONFIRMATION = (
+NOT_ENOUGH_FOR_LC = (
     '',
     '{} groupmate(s) found, {} more needed',
     ''
 )
-ONGOING_LEADER_CONFIRMATION = (
+ONGOING_LC = (
     '',
     'ONGOING_LEADER_CONFIRMATION',
     ''
 )
-ALREADY_LEADER_CONFIRMATION = (
+ALREADY_LC = (
     '',
     'ALREADY_LEADER_CONFIRMATION',
     ''
 )
-CHEATING_IN_LEADER_CONFIRMATION = (
+CHEATING_IN_LC = (
     '',
     "{} CHEATING_IN_LEADER_CONFIRMATION",
     ''
@@ -337,7 +337,7 @@ FT_COMMANDS = (
     '\n\nBy the way, when you use a command for the first time, I explain how it works as we go',
     ''
 )
-ADMIN_COMMANDS = (  # leader commands
+ADMIN_COMMANDS = (
     '',
 
     '\n\n/new — add an upcoming event\n'
@@ -348,7 +348,7 @@ ADMIN_COMMANDS = (  # leader commands
 
     ''
 )
-LEADER_COMMANDS = (  # leader commands
+LEADER_COMMANDS = (
     '',
 
     '\n\n/trust — add an admin\n'
@@ -584,23 +584,18 @@ INVALID_MINUTE = (
 
 # -------------------------------------------------------------------------------------------- adding event (answering)
 
-ONGOING_ANSWERING_TO_NOTIFY = (
-    '',
-    'ONGOING_ANSWERING_TO_NOTIFY',
-    ''
-)
 FT_NEW_EVENT = (
     '',
     'FT_NEW_EVENT:\n\n{}\n\n{}',
     ''
 )
 NEW_EVENT = (
-    '',
+    'Нова подія:\n\n{}\n\n{}',
     'New event:\n\n{}\n\n{}',
     ''
 )
 ASK_TO_NOTIFY = (
-    ('', ''),
+    ('Чи нагадувати мені про неї?', 'Мені варто нагадувати про неї?'),
     (
         'Should I notify you about it?',
         'Should I notify you about this one?',
@@ -622,6 +617,11 @@ EXPECT_NO_NOTIFICATIONS = (
 
 # ------------------------------------------------------------------------------- adding event (answering) (exceptions)
 
+ONGOING_ANSWERING_TO_NOTIFY = (
+    '',
+    'ONGOING_ANSWERING_TO_NOTIFY',
+    ''
+)
 WOULD_EXPECT_NOTIFICATIONS = (
     '',
     'WOULD_EXPECT_NOTIFICATIONS',
@@ -991,7 +991,7 @@ ASK_NEW_LEADER = (
 )
 YOU_NOW_LEADER = (
     '',
-    'YOU_NOW_LEADER. New commands:{}',
+    'YOU_NOW_LEADER. Here are commands that are now available for you:{}',
     ''
 )
 NOW_LEADER = (

@@ -29,7 +29,7 @@ class Interaction:
         ONGOING_MESSAGE (tuple[str]): message in case of an attempt to start a different interaction.
         ALREADY_MESSAGE (tuple[str]): message in case of using self.COMMAND during the interaction.
         chat_id (int): id of the chat that the interaction is in.
-        language (int): index of the language of the interaction, according to the indexation in src.text.LANGUAGES.
+        language (int): index of interaction's language, according to src.text.LANGUAGES.
         next_action (Callable[[Update], None]): method that makes the bot take the next step of the interaction.
     """
     COMMAND: str
@@ -72,29 +72,25 @@ class Interaction:
         """
         return BOT.send_message(self.chat_id, *args, **kwargs)
 
-    def ask_polar(self, question: str, specifier: Union[int, CallbackQuery] = None) -> Message:
+    def ask_polar(self, question: str, query: CallbackQuery = None) -> Message:
         """
         This method makes the bot ask the chat a polar (general) question. The options are provided as two inline
         buttons.
         Args:
             question (str): text of the message that will be sent.
-            specifier (telegram.CallbackQuery or int, optional): If a callback query is given, the question will be
-                asked by editing the query's message. If a chat id is given, the question is sent to this chat.
+            query (telegram.CallbackQuery, optional): If given, the question will be asked by editing the query's
+                message.
         """
-        answers = [
-            [
-                InlineKeyboardButton(t.YES[self.language], callback_data='y'),
-                InlineKeyboardButton(t.NO[self.language], callback_data='n')
-            ]
-        ]
+        answers = [[
+            InlineKeyboardButton(t.YES[self.language], callback_data='y'),
+            InlineKeyboardButton(t.NO[self.language], callback_data='n')
+        ]]
         markup = InlineKeyboardMarkup(answers)
 
-        try:
-            return BOT.send_message(specifier, question, reply_markup=markup)
-        except BadRequest:  # if the specifier is not given
+        if not query:
             return self.send_message(question, reply_markup=markup)
-        except TypeError:  # if the specifier is a callback query
-            return specifier.message.edit_text(question, reply_markup=markup)
+        else:
+            return query.message.edit_text(question, reply_markup=markup)
 
     def respond(self, command: str, message: Message):
         """
@@ -110,8 +106,8 @@ class Interaction:
             command (str): command used during the interaction.
             message (telegram.Message): message that the command is sent in.
         """
-        msg = self.ALREADY_MESSAGE if command == self.COMMAND else self.ONGOING_MESSAGE
-        message.reply_text(msg[self.language], quote=message.chat.type != Chat.PRIVATE)
+        text = (self.ALREADY_MESSAGE if command == self.COMMAND else self.ONGOING_MESSAGE)[self.language]
+        message.reply_text(text, quote=message.chat.type != Chat.PRIVATE)
         l.cl.info(l.INTERRUPTS.format(message.from_user.id, command, type(self).__name__))
 
     @staticmethod
@@ -164,9 +160,9 @@ class Registration(Interaction):
         """
         This method makes the bot ask the chat their language. The options are provided as inline buttons.
         """
-        languages = [
-            [InlineKeyboardButton(language, callback_data=str(index)) for index, language in enumerate(c.LANGUAGES)]
-        ]
+        languages = [[
+            InlineKeyboardButton(language, callback_data=str(index)) for index, language in enumerate(c.LANGUAGES)
+        ]]
         markup = InlineKeyboardMarkup(languages)
 
         self.send_message(t.ASK_LANGUAGE, reply_markup=markup)
@@ -275,12 +271,8 @@ class Registration(Interaction):
 
         departments = self.get_departments()
         departments = [
-            [
-                InlineKeyboardButton(name, callback_data=str(department_id))
-                for department_id, name in row
-            ] for row in [
-                departments[i:i + 3] for i in range(0, len(departments), 3)
-            ]
+            [InlineKeyboardButton(name, callback_data=str(department_id)) for department_id, name in row]
+            for row in [departments[i:i + 4] for i in range(0, len(departments), 4)]
         ]
         markup = InlineKeyboardMarkup(departments)
 
@@ -461,8 +453,8 @@ class Registration(Interaction):
             given_group_name (str): the given group name.
         """
         if self.is_first:  # if the chat is the first one from the group to be registered
-            msg = t.NONE_FOUND if self.is_student else t.NO_STUDENTS_FOUND
-            self.send_message(msg[self.language].format(given_group_name))
+            text = (t.NONE_FOUND if self.is_student else t.NO_STUDENTS_FOUND)[self.language].format(given_group_name)
+            self.send_message(text)
             return
 
         connection = connect(c.DATABASE)
@@ -487,7 +479,7 @@ class Registration(Interaction):
                 BOT.send_message(r[0], choice(t.NEW_GROUPMATE[self.language]).format(self.username))
 
             num_groupmates, num_group_chats = len(groupmate_records), len(group_chat_records)
-            text, lc_available_msg = t.report_on_related_chats(num_groupmates, num_group_chats, self.language)
+            text_leader, lc_available_msg = t.report_on_related_chats(num_groupmates, num_group_chats, self.language)
 
             if lc_available_msg:
                 for user_id, language in groupmate_records:
@@ -502,9 +494,9 @@ class Registration(Interaction):
             )
             student_usernames = tuple(r[0] for r in cursor.fetchall())
 
-            text = t.STUDENTS_FOUND[self.language].format(len(student_usernames), '\n'.join(student_usernames))
+            text_leader = t.STUDENTS_FOUND[self.language].format('\n'.join(student_usernames))
 
-        self.send_message(text)
+        self.send_message(text_leader)
 
         cursor.close()
         connection.close()
@@ -516,7 +508,7 @@ class Registration(Interaction):
 
 class LeaderConfirmation(Interaction):
     COMMAND, IS_PRIVATE = 'claim', False
-    ONGOING_MESSAGE, ALREADY_MESSAGE = t.ONGOING_LEADER_CONFIRMATION, t.ALREADY_LEADER_CONFIRMATION
+    ONGOING_MESSAGE, ALREADY_MESSAGE = t.ONGOING_LC, t.ALREADY_LC
 
     def __init__(self, record: a.ChatRecord, group_chat_record: tuple[int, int]):
         self.chat_id, self.language = group_chat_record
@@ -539,7 +531,7 @@ class LeaderConfirmation(Interaction):
         BOT.send_message(self.candidate_id, t.CONFIRMATION_POLL_SENT[self.candidate_language])
 
         options = [t.YES[self.language], t.NO[self.language]]
-        question = t.LEADER_CONFIRMATION_QUESTION[self.language].format(self.candidate_username)
+        question = t.LC_QUESTION[self.language].format(self.candidate_username)
         self.poll_message_id = BOT.send_poll(self.chat_id, question, options, is_anonymous=False).message_id
 
     def handle_answer(self, update: Update):
@@ -557,7 +549,7 @@ class LeaderConfirmation(Interaction):
         try:
             user_id = answer.user.id
         except AttributeError:  # if the update is not caused by a poll answer
-            return
+            return  # no response
 
         if user_id != self.candidate_id:  # if the answer is not given by the candidate
             self.num_votes += 1
@@ -568,11 +560,12 @@ class LeaderConfirmation(Interaction):
             if self.num_votes == c.MIN_GROUPMATES_FOR_LC:  # if many enough groupmates have answered
 
                 if self.handle_result():
-                    candidate_msg, group_msg = t.YOU_CONFIRMED, t.LEADER_CONFIRMED
+                    new_commands = t.ADMIN_COMMANDS[self.language] + t.LEADER_COMMANDS[self.language]
+                    candidate_text, group_msg = t.YOU_CONFIRMED[self.language].format(new_commands), t.LEADER_CONFIRMED
                 else:
-                    candidate_msg, group_msg = t.YOU_NOT_CONFIRMED, t.LEADER_NOT_CONFIRMED
+                    candidate_text, group_msg = t.YOU_NOT_CONFIRMED[self.language], t.LEADER_NOT_CONFIRMED
 
-                BOT.send_message(self.candidate_id, candidate_msg[self.language])
+                BOT.send_message(self.candidate_id, candidate_text)
 
                 try:
                     BOT.delete_message(self.chat_id, self.poll_message_id)
@@ -583,7 +576,7 @@ class LeaderConfirmation(Interaction):
                 self.terminate()
 
         else:  # if the answer is given by the candidate
-            self.send_message(t.CHEATING_IN_LEADER_CONFIRMATION[self.language].format(self.candidate_username))
+            self.send_message(t.CHEATING_IN_LC[self.language].format(self.candidate_username))
 
     def handle_result(self) -> bool:
         """
@@ -632,7 +625,7 @@ class LeaderConfirmation(Interaction):
 
         Args:
             user_id (int): id of the groupmate to remember.
-            user_language (int): language of the groupmate to remember.
+            user_language (int): language of the groupmate to remember, according to src.text.LANGUAGES.
         """
         self.late_claimers.append((user_id, user_language))
 
@@ -685,8 +678,8 @@ class AddingAdmin(Interaction):
         ]
         markup = InlineKeyboardMarkup(ordinary_students)
 
-        msg = t.ASK_NEW_ADMIN if self.is_familiar else t.FT_ASK_NEW_ADMIN
-        self.send_message(msg[self.language], reply_markup=markup)
+        text = (t.ASK_NEW_ADMIN if self.is_familiar else t.FT_ASK_NEW_ADMIN)[self.language]
+        self.send_message(text, reply_markup=markup)
 
     def get_ordinary_records(self) -> list[tuple[int, str, int]]:
         """
@@ -774,8 +767,8 @@ class RemovingAdmin(Interaction):
         ]
         markup = InlineKeyboardMarkup(admins)
 
-        msg = t.ASK_ADMIN if self.is_familiar else t.FT_ASK_ADMIN
-        self.send_message(msg[self.language], reply_markup=markup)
+        text = (t.ASK_ADMIN if self.is_familiar else t.FT_ASK_ADMIN)[self.language]
+        self.send_message(text, reply_markup=markup)
 
     def get_admin_records(self) -> list[tuple[int, str, int]]:
         """
@@ -829,7 +822,7 @@ class RemovingAdmin(Interaction):
         connection.close()
         l.cl.info(l.NO_MORE_ADMIN.format(self.admin_id))
 
-        msg = t.ASK_TO_NOTIFY_FORMER if self.is_familiar else t.FT_ASK_TO_NOTIFY_FORMER
+        msg = (t.ASK_TO_NOTIFY_FORMER if self.is_familiar else t.FT_ASK_TO_NOTIFY_FORMER)
         self.ask_polar(msg[self.language].format(self.admin_username), query)
         self.next_action = self.handle_answer
 
@@ -927,8 +920,7 @@ class AddingEvent(Interaction):
         self.time_str = ''
         self.num_to_answer = 0
 
-        msg = t.ASK_NEW_EVENT if self.is_familiar else t.FT_ASK_NEW_EVENT
-        self.send_message(msg[self.language])
+        self.send_message((t.ASK_NEW_EVENT if self.is_familiar else t.FT_ASK_NEW_EVENT)[self.language])
         self.next_action = self.handle_event
 
     def handle_event(self, update: Update):
@@ -945,8 +937,7 @@ class AddingEvent(Interaction):
         if '\n' not in event:
             self.event = event
 
-            msg = t.ASK_DATE if self.is_familiar else t.FT_ASK_DATE
-            self.send_message(msg[self.language])
+            self.send_message((t.ASK_DATE if self.is_familiar else t.FT_ASK_DATE)[self.language])
             self.next_action = self.handle_date
 
         else:
@@ -1066,8 +1057,14 @@ class AddingEvent(Interaction):
         except AttributeError:  # if the group has no upcoming events
             updated_events = f'{self.event}'
         else:
-            events.append(self.event)
-            events.sort(key=a.str_to_datetime)
+            num_events = len(events)
+            for i in range(num_events):
+                if self.date > a.str_to_datetime(events[num_events - i - 1]):  # if the new event is later
+                    events.insert(num_events - i, self.event)
+                    break
+            else:  # if the new event is the earliest one
+                events.insert(0, self.event)
+
             updated_events = '\n'.join(events)
 
         cursor.execute(  # updating the group's upcoming events
@@ -1090,6 +1087,16 @@ class AddingEvent(Interaction):
 
         # the event with the weekday in each language
         event = tuple(f'{t.WEEKDAYS[self.weekday_index][index]} {self.event[2:]}' for index in range(len(c.LANGUAGES)))
+
+        answers = tuple(
+            [[
+                InlineKeyboardButton(t.YES[index], callback_data='y'),
+                InlineKeyboardButton(t.NO[index], callback_data='n')
+            ]]
+            for index in range(len(c.LANGUAGES))
+        )
+        markup = tuple(InlineKeyboardMarkup(buttons) for buttons in answers)
+
         for chat_id, chat_type, language, familiarity in related_records:
 
             if not chat_type:  # if the record is of a private chat
@@ -1097,7 +1104,8 @@ class AddingEvent(Interaction):
                 self.num_to_answer += 1
 
                 msg = t.NEW_EVENT if int(a.Familiarity(*familiarity).answer_to_notify) else t.FT_NEW_EVENT
-                self.ask_polar(msg[language].format(event[language], choice(t.ASK_TO_NOTIFY[language])), chat_id)
+                text = msg[language].format(event[language], choice(t.ASK_TO_NOTIFY[language]))
+                BOT.send_message(chat_id, text, reply_markup=markup[language])
 
             else:  # if the record is of a non-private chat
                 BOT.send_message(chat_id, t.NEW_EVENT[language].format(event[language], ''))
@@ -1196,8 +1204,7 @@ class CancelingEvent(Interaction):
         ]
         markup = InlineKeyboardMarkup(events)
 
-        msg = t.FT_ASK_EVENT if self.is_familiar else t.ASK_EVENT
-        self.send_message(msg[self.language], reply_markup=markup)
+        self.send_message((t.FT_ASK_EVENT if self.is_familiar else t.ASK_EVENT)[self.language], reply_markup=markup)
 
     def delete_event(self, update: Update):
         """
@@ -1293,8 +1300,7 @@ class SavingInfo(Interaction):
         super().__init__(record)
         self.info: str = None
 
-        msg = t.ASK_NEW_INFO if self.is_familiar else t.FT_ASK_NEW_INFO
-        self.send_message(msg[self.language])
+        self.send_message((t.ASK_NEW_INFO if self.is_familiar else t.FT_ASK_NEW_INFO)[self.language])
         self.next_action = self.handle_info
 
     def handle_info(self, update: Update):
@@ -1388,8 +1394,7 @@ class DeletingInfo(Interaction):
         ]
         markup = InlineKeyboardMarkup(info)
 
-        msg = t.ASK_INFO if self.is_familiar else t.FT_ASK_INFO
-        self.send_message(msg[self.language], reply_markup=markup)
+        self.send_message((t.ASK_INFO if self.is_familiar else t.FT_ASK_INFO)[self.language], reply_markup=markup)
 
     def delete_info(self, update: Update):
         """
@@ -1460,8 +1465,7 @@ class ClearingInfo(Interaction):
     def __init__(self, record: a.ChatRecord):
         super().__init__(record)
 
-        msg = t.ASK_CLEARING_INFO if self.is_familiar else t.FT_ASK_CLEARING_INFO
-        self.ask_polar(msg[self.language])
+        self.ask_polar((t.ASK_CLEARING_INFO if self.is_familiar else t.FT_ASK_CLEARING_INFO)[self.language])
         self.next_action = self.handle_answer
 
     def handle_answer(self, update: Update):
@@ -1484,6 +1488,7 @@ class ClearingInfo(Interaction):
             self.update_familiarity(self.chat_id, self.familiarity, clear='1')
 
         if answer == 'y':  # if the answer is positive
+            self.clear_info()
             query.message.edit_text(t.INFO_CLEARED[self.language])
         else:  # if the answer is negative
             l.cl.info(l.KEEPS.format(self.chat_id))
@@ -1515,8 +1520,7 @@ class NotifyingGroup(Interaction):
         super().__init__(record)
         self.username = record.username
 
-        msg = t.ASK_MESSAGE if self.is_familiar else t.FT_ASK_MESSAGE
-        self.send_message(msg[self.language])
+        self.send_message((t.ASK_MESSAGE if self.is_familiar else t.FT_ASK_MESSAGE)[self.language])
         self.next_action = self.notify
 
     def notify(self, update: Update):
@@ -1584,8 +1588,7 @@ class AskingGroup(Interaction):
         self.asked: dict[int, tuple[str, int, a.Familiarity, int]] = None
         self.answered, self.refused = list[tuple[str, str]](), list[str]()
 
-        msg = t.ASK_QUESTION if self.is_familiar else t.FT_ASK_QUESTION
-        self.send_message(msg[self.language])
+        self.send_message((t.ASK_QUESTION if self.is_familiar else t.FT_ASK_QUESTION)[self.language])
         self.next_action = self.handle_question
 
     def handle_question(self, update: Update):
@@ -1605,8 +1608,8 @@ class AskingGroup(Interaction):
 
         self.group_chat = self.find_group_chat()
         if self.group_chat:
-            msg = t.ASK_TO_PUBLISH if self.is_familiar else t.FT_ASK_TO_PUBLISH
-            self.leader_answer_message_id = self.ask_polar(msg[self.language]).message_id
+            text = (t.ASK_TO_PUBLISH if self.is_familiar else t.FT_ASK_TO_PUBLISH)[self.language]
+            self.leader_answer_message_id = self.ask_polar(text).message_id
             self.next_action = self.handle_answer
         else:
             self.launch()
@@ -1734,15 +1737,14 @@ class AskingGroup(Interaction):
             [[InlineKeyboardButton(t.REFUSE_TO_ANSWER[index], callback_data='refuse')]]
             for index in range(len(c.LANGUAGES))
         )
-        markup = tuple(InlineKeyboardMarkup(r) for r in refuse)
+        markup = tuple(InlineKeyboardMarkup(button) for button in refuse)
 
         for user_id, (username, language, familiarity) in self.asked.items():
             current[user_id] = self
             BOT.forward_message(user_id, self.chat_id, self.question_message_id)
-            msg = (t.ASK_ANSWER if int(familiarity.answer) else t.FT_ASK_ANSWER)[language]
-            info = (t.PUBLIC_ANSWER if self.is_public else t.PRIVATE_ANSWER)[language]
-            text = msg.format(info.format(self.username))
-            message_id = BOT.send_message(user_id, text, reply_markup=markup[language]).message_id
+            text = (t.ASK_ANSWER if int(familiarity.answer) else t.FT_ASK_ANSWER)[language]
+            info = (t.PUBLIC_ANSWER if self.is_public else t.PRIVATE_ANSWER)[language].format(self.username)
+            message_id = BOT.send_message(user_id, text.format(info), reply_markup=markup[language]).message_id
             self.asked[user_id] = (username, language, familiarity, message_id)
 
         l.cl.info(l.ASKED.format(self.group_id, self.cut_question))
@@ -1810,7 +1812,7 @@ class AskingGroup(Interaction):
 
         Args:
             chat_id (int): id of the chat that the answer message is in.
-            language (int): language of the chat that the answer message is in.
+            language (int): language of the chat that the answer message is in, according to src.text.LANGUAGES.
             answer_message_id (int): if of the answer message.
             usernames(tuple[str]): new text for the message, based on the current information about the students'
                 responses (answers, refusals, absence of a response).
@@ -1867,8 +1869,8 @@ class ChangingLeader(Interaction):
         ]
         markup = InlineKeyboardMarkup(candidates)
 
-        msg = t.FT_ASK_NEW_LEADER if not self.is_familiar else t.ASK_NEW_LEADER
-        self.send_message(msg[self.language], reply_markup=markup)
+        text = (t.FT_ASK_NEW_LEADER if not self.is_familiar else t.ASK_NEW_LEADER)[self.language]
+        self.send_message(text, reply_markup=markup)
 
     def get_candidate_records(self) -> list[tuple[int, str, int]]:
         """
@@ -2003,8 +2005,7 @@ class DeletingData(Interaction):
     def __init__(self, record: a.ChatRecord):
         super().__init__(record)
 
-        msg = t.FT_ASK_LEAVING if not self.is_familiar else t.ASK_LEAVING
-        self.ask_polar(msg[self.language])
+        self.ask_polar((t.FT_ASK_LEAVING if not self.is_familiar else t.ASK_LEAVING)[self.language])
         self.next_action = self.handle_answer
 
     def handle_answer(self, update: Update):
@@ -2028,7 +2029,6 @@ class DeletingData(Interaction):
 
         if answer == 'y':  # if the answer is positive
             self.delete_record()
-            a.update_group_chat_language(self.group_id)
             query.message.edit_text(t.DATA_DELETED[self.language])
         else:  # if the answer is negative
             l.cl.info(l.STAYS.format(self.chat_id))
@@ -2075,3 +2075,5 @@ class DeletingData(Interaction):
         l.cl.info(l.LEAVES.format(self.chat_id, self.group_id))
         if is_last:
             l.cl.info(l.LEAVES.format(self.group_id))
+        else:
+            a.update_group_chat_language(self.group_id)

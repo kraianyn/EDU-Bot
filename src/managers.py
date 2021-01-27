@@ -94,7 +94,7 @@ def leader_confirmation(record: a.ChatRecord, update: Update):
 
             else:  # if there is not enough registered students from the group
                 difference = c.MIN_GROUPMATES_FOR_LC - num_groupmates
-                text = t.NOT_ENOUGH_FOR_LEADER_CONFIRMATION[record.language].format(num_groupmates, difference)
+                text = t.NOT_ENOUGH_FOR_LC[record.language].format(num_groupmates, difference)
                 message.reply_text(text, quote=not is_private)
                 l.cl.info(l.CLAIM_WITH_NOT_ENOUGH.format(record.id, num_groupmates))
 
