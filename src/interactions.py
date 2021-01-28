@@ -53,9 +53,7 @@ class Interaction:
                 attributes described above are initialized.
         """
         if record:
-            self.chat_id = record.id
-            self.language = record.language
-            self.group_id = record.group_id
+            self.chat_id, self.language, self.group_id = record.id, record.language, record.group_id
 
             familiarity = a.Familiarity(*record.familiarity)
             self.is_familiar = bool(int(getattr(familiarity, self.COMMAND)))
@@ -135,8 +133,8 @@ class Interaction:
         """
         This method terminates the interaction by deleting the instance in src.interactions.current.
         """
-        l.cl.info(l.ENDS.format(self.chat_id, type(self).__name__))
         del current[self.chat_id]
+        l.cl.info(l.ENDS.format(self.chat_id, type(self).__name__))
 
 
 current: dict[int, Interaction] = dict()
@@ -508,15 +506,17 @@ class Registration(Interaction):
 
 class LeaderConfirmation(Interaction):
     COMMAND, IS_PRIVATE = 'claim', False
-    ONGOING_MESSAGE, ALREADY_MESSAGE = t.ONGOING_LC, t.ALREADY_LC
+    ONGOING_MESSAGE, ALREADY_MESSAGE = t.ONGOING_ENTERING_YEARS, t.ALREADY_LC
 
     def __init__(self, record: a.ChatRecord, group_chat_record: tuple[int, int]):
-        self.chat_id, self.language = group_chat_record
-        self.group_id = record.group_id
-        super().__init__()
-        self.candidate_id = record.id
-        self.candidate_username, self.candidate_language = record.username, record.language
-        self.poll_message_id: Message = None
+        self.chat_id, self.language, self.group_id = record.id, record.language, record.group_id
+        current[self.group_id] = self
+        l.cl.info(l.STARTS.format(self.chat_id, type(self).__name__))
+
+        self.username = record.username
+        self.group_chat = group_chat_record
+
+        self.poll_message_id: int = None
         self.num_votes, self.num_positive_votes = 0, 0
         self.late_claimers: list[tuple[int, int]] = list()
 
@@ -528,11 +528,11 @@ class LeaderConfirmation(Interaction):
         This method makes the bot send a leader confirmation poll to the group chat of the candidate's group. The
         options are positive and negative.
         """
-        BOT.send_message(self.candidate_id, t.CONFIRMATION_POLL_SENT[self.candidate_language])
+        BOT.send_message(self.chat_id, t.CONFIRMATION_POLL_SENT[self.language])
 
-        options = [t.YES[self.language], t.NO[self.language]]
-        question = t.LC_QUESTION[self.language].format(self.candidate_username)
-        self.poll_message_id = BOT.send_poll(self.chat_id, question, options, is_anonymous=False).message_id
+        options = [t.YES[self.group_chat[1]], t.NO[self.group_chat[1]]]
+        question = t.LC_QUESTION[self.group_chat[1]].format(self.username)
+        self.poll_message_id = BOT.send_poll(self.group_chat[0], question, options, is_anonymous=False).message_id
 
     def handle_answer(self, update: Update):
         """
@@ -551,7 +551,7 @@ class LeaderConfirmation(Interaction):
         except AttributeError:  # if the update is not caused by a poll answer
             return  # no response
 
-        if user_id != self.candidate_id:  # if the answer is not given by the candidate
+        if user_id != self.chat_id:  # if the answer is not given by the candidate
             self.num_votes += 1
 
             if not answer.option_ids[0]:  # if the answer is positive
@@ -559,24 +559,29 @@ class LeaderConfirmation(Interaction):
 
             if self.num_votes == c.MIN_GROUPMATES_FOR_LC:  # if many enough groupmates have answered
 
+                try:
+                    BOT.delete_message(self.group_chat[0], self.poll_message_id)
+                except BadRequest:  # if it has been more than 48 hours since the poll message was sent
+                    BOT.stop_poll(self.group_chat[0], self.poll_message_id)
+
+                del current[self.group_id]
+
                 if self.handle_result():
                     new_commands = t.ADMIN_COMMANDS[self.language] + t.LEADER_COMMANDS[self.language]
-                    candidate_text, group_msg = t.YOU_CONFIRMED[self.language].format(new_commands), t.LEADER_CONFIRMED
+                    self.send_message(t.YOU_CONFIRMED[self.language].format(new_commands))
+                    BOT.send_message(self.group_chat[0], t.LEADER_CONFIRMED[self.group_chat[1]].format(self.username))
+
+                    current[self.chat_id] = self
+                    self.send_message(t.ASK_EDU_YEAR[self.language])
+                    self.next_action = self.handle_year
+
                 else:
-                    candidate_text, group_msg = t.YOU_NOT_CONFIRMED[self.language], t.LEADER_NOT_CONFIRMED
-
-                BOT.send_message(self.candidate_id, candidate_text)
-
-                try:
-                    BOT.delete_message(self.chat_id, self.poll_message_id)
-                except BadRequest:  # if it has been more than 48 hours since the poll message was sent
-                    BOT.stop_poll(self.chat_id, self.poll_message_id)
-                self.send_message(group_msg[self.language].format(self.candidate_username))
-
-                self.terminate()
+                    self.send_message(t.YOU_NOT_CONFIRMED[self.language])
+                    text = t.LEADER_NOT_CONFIRMED[self.group_chat[1]].format(self.username)
+                    BOT.send_message(self.group_chat[0], text)
 
         else:  # if the answer is given by the candidate
-            self.send_message(t.CHEATING_IN_LC[self.language].format(self.candidate_username))
+            BOT.send_message(self.group_chat[0], t.CHEATING_IN_LC[self.language].format(self.username))
 
     def handle_result(self) -> bool:
         """
@@ -590,19 +595,20 @@ class LeaderConfirmation(Interaction):
             cursor = connection.cursor()
             cursor.execute(  # making the candidate the group's leader
                 'UPDATE chats SET role = 2 WHERE id = ?',
-                (self.candidate_id,)
+                (self.chat_id,)
             )
             connection.commit()
             cursor.close()
             connection.close()
-            l.cl.info(l.CONFIRMED.format(self.candidate_id))
+            l.cl.info(l.CONFIRMED.format(self.chat_id))
 
             return True
 
         else:
-            l.cl.info(l.NOT_CONFIRMED.format(self.candidate_id))
+            l.cl.info(l.NOT_CONFIRMED.format(self.chat_id))
+
             for user_id, language in self.late_claimers:
-                BOT.send_message(user_id, t.CANDIDATE_NOT_CONFIRMED[language].format(self.candidate_username))
+                BOT.send_message(user_id, t.CANDIDATE_NOT_CONFIRMED[language].format(self.username))
 
             return False
 
@@ -615,7 +621,7 @@ class LeaderConfirmation(Interaction):
 
         Returns (bool): whether the user is the candidate of the ongoing leader confirmation.
         """
-        return user_id == self.candidate_id
+        return user_id == self.chat_id
 
     def add_claimer(self, user_id: int, user_language: int):
         """
@@ -628,6 +634,85 @@ class LeaderConfirmation(Interaction):
             user_language (int): language of the groupmate to remember, according to src.text.LANGUAGES.
         """
         self.late_claimers.append((user_id, user_language))
+
+    def handle_year(self, update: Update):
+        """
+        This method is called when the bot receives an update after the leader is asked what year their group are and
+        how many years the group is going to study in total. It checks whether the given information is valid and
+        finishes the interaction if it is. Otherwise, the bot sends a message explaining why the given information is
+        invalid.
+
+        Args:
+            update (telegram.Update): update received after the leader is asked what year their group are and how many
+                years the group is going to study in total.
+        """
+        edu_year = self.inspect_edu_year(update.effective_message.text)
+        try:
+            current_edu_year, all_edu_years = edu_year
+        except ValueError:  # if the given EDU year is invalid
+            self.send_message(edu_year)
+        else:  # if the given EDU year is valid
+            graduation_year = self.save_graduation_year(current_edu_year, all_edu_years)
+            self.send_message(t.GRADUATION_YEAR_SAVED[self.language].format(graduation_year))
+            self.terminate()
+
+    def inspect_edu_year(self, edu_year: str) -> Union[tuple[int, int], str]:
+        """
+        This method looks for a possible reason why the given information about the group's years in the EDU is invalid.
+        It involves using src.config.EDU_YEAR_PATTERN regular expression to check the format, and checks the given
+        values for the current year and for how many years the group is going to study in total.
+
+        Args:
+            edu_year (str): the given information about the group's years in the EDU.
+
+        Returns (tuple[int, int] or str): current year and how many years the group is going to study in total, if the
+            information is valid. Otherwise, text describing why the given information is invalid.
+        """
+        edu_years = findall(c.EDU_YEAR_PATTERN, edu_year)
+
+        if (num_edu_years := len(edu_years)) == 1:  # if 1 EDU year is given
+            current_edu_year, all_edu_years = int(edu_years[0][0]), int(edu_years[0][1])
+
+            if current_edu_year <= all_edu_years:
+                if all_edu_years > c.MAX_EDU_YEARS:
+                    return t.INVALID_ALL_EDU_YEARS[self.language]
+            else:
+                return t.INVALID_CURRENT_EDU_YEAR[self.language]
+
+            return current_edu_year, all_edu_years
+
+        elif not num_edu_years:  # if no years are given
+            return t.INVALID_EDU_YEAR[self.language]
+
+        else:  # if multiple years are given
+            return t.MULTIPLE_EDU_YEARS[self.language]
+
+    def save_graduation_year(self, current_edu_year: int, all_edu_years: int) -> int:
+        """
+        This method determines the group's graduation year and saves it bu updating the group's record in the database.
+
+        Args:
+            current_edu_year (int): the group's current year in the EDU.
+            all_edu_years (int): how many years the group is going to study in total.
+
+        Returns (int): year that the group graduates in.
+        """
+        now = datetime.now()
+        is_first_term = now.month >= c.THRESHOLD[0] and now.day >= c.THRESHOLD[1]
+        graduation_year = now.year + (all_edu_years - current_edu_year) + is_first_term
+
+        connection = connect(c.DATABASE)
+        cursor = connection.cursor()
+        cursor.execute(
+            'UPDATE groups SET graduation = ? WHERE id = ?',
+            (graduation_year - 2000, self.group_id)
+        )
+        connection.commit()
+        cursor.close()
+        connection.close()
+        l.cl.info(l.ENTERS_EDU_YEAR.format(self.chat_id, current_edu_year, all_edu_years))
+
+        return graduation_year
 
 
 def displaying_commands(record: a.ChatRecord, update: Update):
@@ -952,7 +1037,7 @@ class AddingEvent(Interaction):
         Args:
             update (telegram.Update): update received after the admin is asked the new event's date.
         """
-        if not (text := self.reason_invalid(update.effective_message.text)):  # if the given date is valid
+        if not (text := self.inspect_date(update.effective_message.text)):  # if the given date is valid
             if not self.is_familiar:  # if the admin is adding an event for the first time
                 self.update_familiarity(self.chat_id, self.familiarity, new='1')
 
@@ -964,7 +1049,7 @@ class AddingEvent(Interaction):
         else:  # if the given date is invalid
             self.send_message(text)
 
-    def reason_invalid(self, date: str) -> Union[str, None]:
+    def inspect_date(self, date: str) -> Union[None, str]:
         """
         This method looks for a possible reason why the given date is invalid. It involves using src.config.DATE_PATTERN
         regular expression to check the format, and checks the given values for month and day of the month (and for hour
@@ -974,21 +1059,21 @@ class AddingEvent(Interaction):
         Args:
             date (str): the given date.
 
-        Returns (str or None): text describing why the given date is invalid. None if the date is valid.
+        Returns (None or str): None if the date is valid. Otherwise, text describing why the given date is invalid.
         """
         dates = findall(c.DATE_PATTERN, date)
 
-        if (l := len(dates)) == 1:  # if 1 date is given
+        if (num_dates := len(dates)) == 1:
             day_str, month_str, time, hour_str, minute_str = dates[0]
-
             day, month = int(day_str), int(month_str)
+
             if month <= 12:
 
                 if month >= 1:
                     now = datetime.now()
-
                     next_february_year = now.year + 1 if now.month > 2 else now.year
                     next_february_length = 28 if next_february_year % 4 else 29
+
                     if day <= (31, next_february_length, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31)[month - 1]:
 
                         if day >= 1:  # if the given date is valid
@@ -1027,7 +1112,7 @@ class AddingEvent(Interaction):
             else:
                 return t.MONTH_OVER_12[self.language].format(month)
 
-        elif not l:  # if no dates are given
+        elif not num_dates:  # if no dates are given
             return t.INVALID_DATE[self.language]
 
         else:  # if multiple dates are given
@@ -1577,7 +1662,7 @@ class AskingGroup(Interaction):
         self.question_message_id: id = None
         self.cut_question: str = None
         self.group_chat: tuple[int, int] = None
-        self.is_public = False
+        self.is_public: bool = None
 
         self.leader_answer_message_id: int = None
         self.group_answer_message_id: int = None
@@ -1606,15 +1691,13 @@ class AskingGroup(Interaction):
         self.question_message_id = message.message_id
         self.cut_question = a.cut(message.text)
 
-        self.group_chat = self.find_group_chat()
-        if self.group_chat:
-            text = (t.ASK_TO_PUBLISH if self.is_familiar else t.FT_ASK_TO_PUBLISH)[self.language]
-            self.leader_answer_message_id = self.ask_polar(text).message_id
-            self.next_action = self.handle_answer
-        else:
-            self.launch()
+        self.group_chat = self.get_group_chat_record()
 
-    def find_group_chat(self) -> Union[tuple[int, int], None]:
+        text = (t.ASK_TO_PUBLISH if self.is_familiar else t.FT_ASK_TO_PUBLISH)[self.language]
+        self.leader_answer_message_id = self.ask_polar(text).message_id
+        self.next_action = self.handle_answer
+
+    def get_group_chat_record(self) -> Union[tuple[int, int], None]:
         """
         Returns (tuple[int, int] or None): record of the group chat of the leader's group. None if the group has not
             registered one.
@@ -1646,6 +1729,7 @@ class AskingGroup(Interaction):
             self.is_public = update.callback_query.data == 'y'
         except AttributeError:  # if the update is not caused by giving the answer
             return  # no response
+
         l.cl.info((l.MAKES_PUBLIC if self.is_public else l.MAKES_NON_PUBLIC).format(self.chat_id))
         self.launch()
 
@@ -1657,7 +1741,7 @@ class AskingGroup(Interaction):
         interaction is public, the answer message is also sent to the group's group chat, and the leader is also asked
         the question.
         """
-        self.ONGOING_MESSAGE = self.ALREADY_MESSAGE = t.ONGOING_ANSWERING
+        self.ONGOING_MESSAGE = t.ONGOING_ANSWERING
         if not self.is_familiar:  # if the leader is asking their group for the first time
             self.update_familiarity(self.chat_id, self.familiarity, ask='1')
 
@@ -1825,6 +1909,14 @@ class AskingGroup(Interaction):
         markup = self.stop_markup if chat_id == self.chat_id else None
         BOT.edit_message_text(text, chat_id, answer_message_id, reply_markup=markup)
 
+    def respond(self, command: str, message: Message):
+        if not self.asked:  # if the second part of the interaction has not been launched
+            super().respond(command, message)
+        else:  # if the second part of the interaction has been launched
+            text = self.ONGOING_MESSAGE[self.asked[message.from_user.id][1]]
+            message.reply_text(text, quote=message.chat.type != Chat.PRIVATE)
+            l.cl.info(l.INTERRUPTS.format(message.from_user.id, command, type(self).__name__))
+
     def terminate(self):
         """
         This method terminates the interaction. It deletes the refuse buttons of students who have yet to respond and
@@ -1844,7 +1936,7 @@ class AskingGroup(Interaction):
 
         del current[self.group_id]  # the group is no longer having the interaction
         l.cl.info(l.TERMINATES.format(self.chat_id))
-        self.send_message(t.GROUP_ASKING_TERMINATED[self.language])
+        self.send_message(t.GROUP_ASKING_TERMINATED[0][self.language])
 
 
 class ChangingLeader(Interaction):
@@ -2002,8 +2094,9 @@ class DeletingData(Interaction):
     COMMAND, IS_PRIVATE = 'leave', False
     ONGOING_MESSAGE, ALREADY_MESSAGE = t.ONGOING_LEAVING, t.ALREADY_LEAVING
 
-    def __init__(self, record: a.ChatRecord):
+    def __init__(self, record: a.ChatRecord, is_last: bool):
         super().__init__(record)
+        self.is_last = is_last
 
         self.ask_polar((t.FT_ASK_LEAVING if not self.is_familiar else t.ASK_LEAVING)[self.language])
         self.next_action = self.handle_answer
@@ -2042,24 +2135,15 @@ class DeletingData(Interaction):
         the user's record in the database. If the user is the last registered student from their group, its record and
         records of the group's group chats are also deleted.
         """
-        is_last = False
-
         connection = connect(c.DATABASE)
         cursor = connection.cursor()
 
-        cursor.execute(  # number of the group's students
-            'SELECT COUNT(id) FROM chats '
-            'WHERE group_id = ? AND type = 0',
-            (self.group_id,)
-        )
-
-        if cursor.fetchone()[0] != 1:  # if the chat is not the last registered one from the group
+        if not self.is_last:  # if the chat is not the last registered one from the group
             cursor.execute(  # deleting the user's record
                 'DELETE FROM chats WHERE id = ?',
                 (self.chat_id,)
             )
         else:  # if the user is the last registered student from the group
-            is_last = True
             cursor.execute(  # deleting the user's record and records of the group's group chats
                 'DELETE FROM chats WHERE group_id = ?',
                 (self.group_id,)
@@ -2073,7 +2157,7 @@ class DeletingData(Interaction):
         cursor.close()
         connection.close()
         l.cl.info(l.LEAVES.format(self.chat_id, self.group_id))
-        if is_last:
+        if self.is_last:
             l.cl.info(l.LEAVES.format(self.group_id))
         else:
             a.update_group_chat_language(self.group_id)

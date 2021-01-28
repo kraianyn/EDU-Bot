@@ -1,12 +1,10 @@
-from sqlite3 import connect
-
 from telegram import Update, Chat
 
 import src.interactions as i
 from src.managers import COMMANDS
 import src.auxiliary as a
 from src.bot_info import USERNAME
-from src.config import DATABASE, LEADER_ROLE
+from src.config import LEADER_ROLE
 from src.loggers import cl, UNAVAILABLE_COMMAND
 from src.text import REGISTRATION_NEEDED
 
@@ -99,27 +97,5 @@ def poll_answer_handler(update: Update, _):
         update (telegram.Update): update received after a poll answer is given.
         _ (telegram.CallbackContext): context object passed by the PollAnswerHandler. Not used.
     """
-    # the chat is having an interaction if it was able to give a poll answer
-    connection = connect(DATABASE)
-    cursor = connection.cursor()
-
-    cursor.execute(  # record of the user that the answer is given by
-        'SELECT group_id FROM chats WHERE id = ?',
-        (update.poll_answer.user.id,)
-    )
-    try:
-        group_id = cursor.fetchone()[0]
-    except TypeError:  # if the user is not registered
-        chat_id = None  # it is impossible to get id of group chat of the user's group
-    else:  # if the user is registered
-        cursor.execute(  # record of group chat of the user's group
-            'SELECT id FROM chats WHERE group_id = ? AND type <> 0',
-            (group_id,)
-        )
-        chat_id = cursor.fetchone()[0]
-
-    cursor.close()
-    connection.close()
-
-    if chat_id:  # if the user is registered
-        i.current[chat_id].next_action(update)
+    if record := a.get_chat_record(update.effective_user.id):  # if the user is registered
+        i.current[record.group_id].next_action(update)

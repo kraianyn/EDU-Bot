@@ -75,19 +75,17 @@ def leader_confirmation(record: a.ChatRecord, update: Update):
             # if many enough students in the group are registered
             if num_groupmates >= c.MIN_GROUPMATES_FOR_LC:
 
-                is_having = group_chat_record[0] in i.current  # whether the group chat is having an interaction
-                # if the group chat is not having an interaction or the interaction is not leader confirmation
-                if not is_having or not isinstance(i.current[group_chat_record[0]], i.LeaderConfirmation):
+                if record.group_id not in i.current:  # if the group is not already confirming a candidate
                     command = COMMANDS[i.LeaderConfirmation.COMMAND]
                     attempt_interaction(command, record, chat, is_private, message, group_chat_record)
 
-                else:  # if the group chat is having an interaction and the interaction is leader confirmation
-                    interaction: i.LeaderConfirmation = i.current[group_chat_record[0]]
+                else:  # if the group is already confirming a candidate
+                    interaction: i.LeaderConfirmation = i.current[record.group_id]
 
-                    if not interaction.is_candidate(record.id):  # if the candidate's groupmate
-                        l.cl.info(l.CLAIMS_LATE.format(record.id, interaction.candidate_id))
+                    if not interaction.is_candidate(record.id):  # if the user is the candidate's groupmate
+                        l.cl.info(l.CLAIMS_LATE.format(record.id, interaction.chat_id))
                         interaction.add_claimer(record.id, record.language)
-                        text = t.ALREADY_CLAIMED[record.language].format(interaction.candidate_username)
+                        text = t.ONGOING_LC[record.language].format(interaction.username)
                         message.reply_text(text, quote=not is_private)
                     else:  # if the user is the candidate
                         interaction.respond(i.LeaderConfirmation.COMMAND, message)
@@ -96,11 +94,11 @@ def leader_confirmation(record: a.ChatRecord, update: Update):
                 difference = c.MIN_GROUPMATES_FOR_LC - num_groupmates
                 text = t.NOT_ENOUGH_FOR_LC[record.language].format(num_groupmates, difference)
                 message.reply_text(text, quote=not is_private)
-                l.cl.info(l.CLAIM_WITH_NOT_ENOUGH.format(record.id, num_groupmates))
+                l.cl.info(l.CLAIM_WITHOUT_ENOUGH.format(record.id, num_groupmates))
 
         else:  # if the group has not registered a group chat
             message.reply_text(t.GROUP_CHAT_NEEDED[record.language], quote=not is_private)
-            l.cl.info(l.CLAIM_WITHOUT_GROUP_CHAT.format(record.id))
+            l.cl.info(l.CLAIM_WITHOUT_CHAT.format(record.id))
 
     else:  # if there is already a leader in the group
         message.reply_text(t.ALREADY_LEADER_IN_GROUP[record.language], quote=not is_private)
@@ -277,10 +275,9 @@ def deleting_info(record: a.ChatRecord, update: Update):
 def leader_involving_group(record: a.ChatRecord, update: Update):
     """
     This function is responsible for deciding whether src.interactions.ChangingLeader, src.interactions.NotifyingGroup,
-    and src.interactions.AskingGroup interactions make sense to be started, which is the case if the leader is not the
-    only registered student from the group. If they are not, an attempt to start the appropriate interaction is made by
-    calling src.managers.attempt_interaction. Otherwise, the bot sends a message, a reply in non-private chats,
-    explaining why the interaction cannot be started.
+    and src.interactions.AskingGroup interactions make sense to be started. If they do, an attempt to start the
+    appropriate interaction is made by calling src.managers.attempt_interaction. Otherwise, the bot sends a message, a
+    reply in non-private chats, explaining why the interaction cannot be started.
 
     Args: see src.managers.deleting_data.__doc__.
     """
@@ -300,11 +297,12 @@ def leader_involving_group(record: a.ChatRecord, update: Update):
 
     if num_groupmates:  # if the leader is not the only registered one from the group
 
-        if command == i.AskingGroup.COMMAND and record.group_id in i.current:
+        # if the command is not /ask or the group is not having the interaction
+        if command != i.AskingGroup.COMMAND or record.group_id not in i.current:
+            attempt_interaction(COMMANDS[command], record, chat, is_private, message)
+        # if the command is /ask and the group is already having the interaction
+        elif isinstance(i.current[record.group_id], i.AskingGroup):
             message.reply_text(t.ONGOING_GROUP_ANSWERING[record.language], quote=not is_private)
-            return
-
-        attempt_interaction(COMMANDS[command], record, chat, is_private, message)
 
     else:  # if the leader is the only registered one from the group
         l.cl.info(l.INVOLVING_GROUP_ALONE.format(record.id, command))
@@ -342,9 +340,26 @@ def deleting_data(record: a.ChatRecord, update: Update):
     """
     chat = update.effective_chat
 
-    if chat.type == Chat.PRIVATE:
-        attempt_interaction(COMMANDS[i.DeletingData.COMMAND], record, chat, True, update.effective_message)
-    else:
+    if chat.type == Chat.PRIVATE:  # if the chat is private
+        connection = connect(c.DATABASE)
+        cursor = connection.cursor()
+        cursor.execute(  # number of registered students from the group
+            'SELECT COUNT(id) FROM chats '
+            'WHERE group_id = ? AND type = 0',
+            (record.group_id,)
+        )
+        is_last = cursor.fetchone()[0] == 1
+        cursor.close()
+        connection.close()
+        print(is_last)
+
+        # if the student is not the last registered one from the group or they are not the group's leader
+        if is_last or record.role != c.LEADER_ROLE:
+            attempt_interaction(COMMANDS[i.DeletingData.COMMAND], record, chat, True, update.effective_message, is_last)
+        else:  # if the student is not the last registered one from the group and they are the group's leader
+            chat.send_message(t.RESIGN_FIRST[record.language])
+
+    else:  # if the chat is not private
         chat.send_message(t.LEAVING_IN_GROUPS[record.language], reply_to_message_id=update.effective_message.message_id)
         l.cl.info(l.LEAVE_NOT_PRIVATELY.format(record.id, chat.id))
 

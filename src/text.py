@@ -74,6 +74,14 @@ INTRODUCTION = (
         ''
     )
 )
+NEW_GROUPMATE = (
+    ('', ''),
+    ("{} has just registered", '{} told me they are your groupmate', 'Now I know that {} is from your group'),
+    ('', '')
+)
+
+# ------------------------------------------------------------------------------ registration (report on related chats)
+
 GROUPMATES_FOUND = (
     'До речі, {}{}{}',
     'By the way, {} already registered{}{}',
@@ -139,11 +147,6 @@ NONE_FOUND = (
     "By the way, you are the first student from your group I know of. For me to know that students are from the same "
     "group, they need to enter the same group name (the case doesn't matter), which is {} for your group.",
     ''
-)
-NEW_GROUPMATE = (
-    ('', ''),
-    ("{} has just registered", '{} told me they are your groupmate', 'Now I know that {} is from your group'),
-    ('', '')
 )
 STUDENTS_FOUND = (
     '',
@@ -247,14 +250,24 @@ LC_QUESTION = (
     '{} LEADER_CONFIRMATION_QUESTION',
     ''
 )
+YOU_CONFIRMED = (
+    '',
+    'YOU_CONFIRMED. Here are commands that are now available for you:{}',
+    ''
+)
 LEADER_CONFIRMED = (
     '',
     "{} is confirmed to be your group's leader",
     ''
 )
-YOU_CONFIRMED = (
+ASK_EDU_YEAR = (
     '',
-    'YOU_CONFIRMED. Here are commands that are now available for you:{}',
+    'ASK_EDU_YEAR',
+    ''
+)
+GRADUATION_YEAR_SAVED = (
+    '',
+    'Ok, so you graduate in {}',
     ''
 )
 
@@ -282,7 +295,7 @@ NOT_ENOUGH_FOR_LC = (
 )
 ONGOING_LC = (
     '',
-    'ONGOING_LEADER_CONFIRMATION',
+    'ONGOING_LEADER_CONFIRMATION {}',
     ''
 )
 ALREADY_LC = (
@@ -295,16 +308,6 @@ CHEATING_IN_LC = (
     "{} CHEATING_IN_LEADER_CONFIRMATION",
     ''
 )
-ALREADY_CLAIMED = (
-    '',
-    '{} ALREADY_CLAIMED',
-    ''
-)
-CANDIDATE_NOT_CONFIRMED = (
-    '',
-    '{} CANDIDATE_NOT_CONFIRMED',
-    ''
-)
 LEADER_NOT_CONFIRMED = (
     '',
     "{} is confirmed not to be your group's leader. Oh what a shame to lie!",
@@ -313,6 +316,36 @@ LEADER_NOT_CONFIRMED = (
 YOU_NOT_CONFIRMED = (
     '',
     'YOU_NOT_CONFIRMED',
+    ''
+)
+CANDIDATE_NOT_CONFIRMED = (
+    '',
+    "{} was confirmed not to be your group's leader, so you can use /claim again",
+    ''
+)
+ONGOING_ENTERING_YEARS = (
+    '',
+    'ONGOING_ENTERING_YEARS',
+    ''
+)
+INVALID_EDU_YEAR = (
+    '',
+    'INVALID_YEAR',
+    ''
+)
+MULTIPLE_EDU_YEARS = (
+    '',
+    'MULTIPLE_YEARS',
+    ''
+)
+INVALID_CURRENT_EDU_YEAR = (
+    '',
+    'If it was true, you would have already graduated) What are the years again?',
+    ''
+)
+INVALID_ALL_EDU_YEARS = (
+    '',
+    "As far as I'm concerned, there's no way you'll study in the same group for {} years",
     ''
 )
 
@@ -843,7 +876,7 @@ ALREADY_NOTIFYING_GROUP = (
     ''
 )
 
-# -------------------------------------------------------------------------------------------------------- asking group
+# --------------------------------------------------------------------------------------------- asking group (creating)
 
 FT_ASK_QUESTION = (
     '',
@@ -865,6 +898,59 @@ ASK_TO_PUBLISH = (
     'ASK_TO_PUBLISH',
     ''
 )
+
+ANSWER_LIST = '"{}"{}{}{}'
+ANSWERED = (
+    '',
+    '\n\nAnswers:\n\n{}',
+    ''
+)
+REFUSED = (
+    '',
+    '\n\nRefused to answer:\n{}',
+    ''
+)
+ASKED = (
+    '',
+    '\n\nNo response:\n{}',
+    ''
+)
+STOP_ASKING_GROUP = (
+    '',
+    'STOP_ASKING_GROUP',
+    ''
+)
+
+# -------------------------------------------------------------------------------- asking group (creating) (exceptions)
+
+UNAVAILABLE_ASKING_GROUP = (
+    '',
+    'UNAVAILABLE_ASKING_GROUP',
+    ''
+)
+NO_GROUPMATES_TO_ASK = (
+    '',
+    'NO_GROUPMATES_TO_ASK',
+    ''
+)
+ONGOING_GROUP_ANSWERING = (
+    '',
+    'ONGOING_GROUP_ANSWERING',
+    ''
+)
+ONGOING_ASKING_GROUP = (
+    '',
+    'ONGOING_ASKING_GROUP',
+    ''
+)
+ALREADY_ASKING_GROUP = (
+    '',
+    'ALREADY_ASKING_GROUP',
+    ''
+)
+
+# -------------------------------------------------------------------------------------------- asking group (answering)
+
 FT_ASK_ANSWER = (
     '',
     'FT_ASK_ANSWER {}',
@@ -895,32 +981,6 @@ REFUSE_TO_ANSWER = (
     'REFUSE_TO_ANSWER',
     ''
 )
-ANSWER_LIST = '"{}"{}{}{}'
-ANSWERED = (
-    '',
-    '\n\nAnswers:\n\n{}',
-    ''
-)
-REFUSED = (
-    '',
-    '\n\nRefused to answer:\n{}',
-    ''
-)
-ASKED = (
-    '',
-    '\n\nNo response:\n{}',
-    ''
-)
-STOP_ASKING_GROUP = (
-    '',
-    'STOP_ASKING_GROUP',
-    ''
-)
-ONGOING_ANSWERING = (
-    '',
-    'ONGOING_ANSWERING',
-    ''
-)
 ANSWER_SENT = (
     '',
     'ANSWER_SENT',
@@ -949,31 +1009,11 @@ GROUP_ASKING_TERMINATED = (
     ),
 )
 
-# ------------------------------------------------------------------------------------------- asking group (exceptions)
+# ------------------------------------------------------------------------------- asking group (answering) (exceptions)
 
-UNAVAILABLE_ASKING_GROUP = (
+ONGOING_ANSWERING = (
     '',
-    'UNAVAILABLE_ASKING_GROUP',
-    ''
-)
-NO_GROUPMATES_TO_ASK = (
-    '',
-    'NO_GROUPMATES_TO_ASK',
-    ''
-)
-ONGOING_GROUP_ANSWERING = (
-    '',
-    'ONGOING_GROUP_ANSWERING',
-    ''
-)
-ONGOING_ASKING_GROUP = (
-    '',
-    'ONGOING_ASKING_GROUP',
-    ''
-)
-ALREADY_ASKING_GROUP = (
-    '',
-    'ALREADY_ASKING_GROUP',
+    'ONGOING_ANSWERING',
     ''
 )
 
@@ -1087,6 +1127,11 @@ DATA_KEPT = (
 LEAVING_IN_GROUPS = (
     '',
     'LEAVING_IN_GROUPS',
+    ''
+)
+RESIGN_FIRST = (
+    '',
+    'RESIGN_FIRST',
     ''
 )
 ONGOING_LEAVING = (

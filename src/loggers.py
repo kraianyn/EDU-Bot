@@ -21,7 +21,7 @@ CT_STARTS, NT_STARTS = 'communication thread starts', 'notification thread start
 UNAVAILABLE_COMMAND = '{} uses /{} with role {}'
 STARTS_NOT_PRIVATELY = '{} is invited to continue {} privately'
 STARTS, ENDS, INTERRUPTS = '{} starts {}', '{} ends {}', '{} uses /{} during {}'
-BECOMES_FAMILIAR = '{} becomes familiar with {}'
+BECOMES_FAMILIAR = '{} becomes familiar with "{}" interaction'
 
 START_BEING_REGISTERED, REGISTERS = '{} uses /start being registered', '{} registers as from {}'
 GROUP_LANGUAGE_UPDATED = 'language of {} is now {}, spoken by {}'
@@ -29,12 +29,11 @@ LEAVE_NOT_PRIVATELY, LEAVES, STAYS = '{} uses /leave in non-private {}', '{} lea
 
 COMMANDS = '{} displays commands'
 
-CLAIM_BEING_LEADER = '{} uses /claim being a leader'
-CLAIM_WITH_LEADER = "{} uses /claim when the group has a leader"
-CLAIM_WITH_NOT_ENOUGH = '{} uses /claim with {} registered students'
-CLAIM_WITHOUT_GROUP_CHAT = '{} uses /claim without group chats'
-CONFIRMED, NOT_CONFIRMED = '{} is confirmed to be the leader', '{} is confirmed not to be the leader'
+CLAIM_BEING_LEADER, CLAIM_WITH_LEADER = '{} uses /claim being a leader', "{} uses /claim when the group has a leader"
+CLAIM_WITHOUT_ENOUGH, CLAIM_WITHOUT_CHAT = '{} uses /claim with {} groupmates', '{} uses /claim without a group chat'
 CLAIMS_LATE = '{} uses /claim when {} is being confirmed'
+CONFIRMED, NOT_CONFIRMED = '{} is confirmed to be the leader', '{} is confirmed not to be the leader'
+ENTERS_EDU_YEAR = '{} enters the EDU year: {}/{}'
 
 TRUST_OVER_LIMIT = '{} uses /trust when {}/{} in the group are admins'
 TRUST_ALONE = '{} attempts to add an admin being alone'
