@@ -8,7 +8,7 @@ ORDINARY_ROLE, ADMIN_ROLE, LEADER_ROLE = 0, 1, 2
 
 THRESHOLD = (8, 31)  # August 31, when the next EDU year starts
 
-DATABASE = '../memory.db'
+DATABASE = 'memory.db'
 STATIC_INITIAL_STUDENT = (
     ORDINARY_ROLE,  # role in the group
     '000000000000000'  # familiarity with the bot's interactions according to src.auxiliary.Familiarity fields

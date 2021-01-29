@@ -9,13 +9,13 @@ from telegram import Update, Chat, Message, InlineKeyboardButton, InlineKeyboard
 from telegram.error import BadRequest
 
 import src.auxiliary as a
+import src.text as t
 from src.bot_info import TOKEN
 import src.config as c
 import src.loggers as l
-import src.text as t
 
-UPDATER = Updater(TOKEN)
-BOT = UPDATER.bot
+updater = Updater(TOKEN)
+bot = updater.bot
 
 
 class Interaction:
@@ -68,7 +68,7 @@ class Interaction:
 
         Returns (telegram.Message): the sent message.
         """
-        return BOT.send_message(self.chat_id, *args, **kwargs)
+        return bot.send_message(self.chat_id, *args, **kwargs)
 
     def ask_polar(self, question: str, query: CallbackQuery = None) -> Message:
         """
@@ -474,7 +474,7 @@ class Registration(Interaction):
             group_chat_records: list[tuple[int]] = cursor.fetchall()
 
             for r in group_chat_records:
-                BOT.send_message(r[0], choice(t.NEW_GROUPMATE[self.language]).format(self.username))
+                bot.send_message(r[0], choice(t.NEW_GROUPMATE[self.language]).format(self.username))
 
             num_groupmates, num_group_chats = len(groupmate_records), len(group_chat_records)
             text_leader, lc_available_msg = t.report_on_related_chats(num_groupmates, num_group_chats, self.language)
@@ -482,7 +482,7 @@ class Registration(Interaction):
             if lc_available_msg:
                 for user_id, language in groupmate_records:
                     text = t.LC_NOW_AVAILABLE[language].format(c.MIN_GROUPMATES_FOR_LC + 1, lc_available_msg[language])
-                    BOT.send_message(user_id, text)
+                    bot.send_message(user_id, text)
 
         else:  # if the new chat is a chat of a group
             cursor.execute(  # the group's students
@@ -528,11 +528,11 @@ class LeaderConfirmation(Interaction):
         This method makes the bot send a leader confirmation poll to the group chat of the candidate's group. The
         options are positive and negative.
         """
-        BOT.send_message(self.chat_id, t.CONFIRMATION_POLL_SENT[self.language])
+        bot.send_message(self.chat_id, t.CONFIRMATION_POLL_SENT[self.language])
 
         options = [t.YES[self.group_chat[1]], t.NO[self.group_chat[1]]]
         question = t.LC_QUESTION[self.group_chat[1]].format(self.username)
-        self.poll_message_id = BOT.send_poll(self.group_chat[0], question, options, is_anonymous=False).message_id
+        self.poll_message_id = bot.send_poll(self.group_chat[0], question, options, is_anonymous=False).message_id
 
     def handle_answer(self, update: Update):
         """
@@ -560,16 +560,16 @@ class LeaderConfirmation(Interaction):
             if self.num_votes == c.MIN_GROUPMATES_FOR_LC:  # if many enough groupmates have answered
 
                 try:
-                    BOT.delete_message(self.group_chat[0], self.poll_message_id)
+                    bot.delete_message(self.group_chat[0], self.poll_message_id)
                 except BadRequest:  # if it has been more than 48 hours since the poll message was sent
-                    BOT.stop_poll(self.group_chat[0], self.poll_message_id)
+                    bot.stop_poll(self.group_chat[0], self.poll_message_id)
 
                 del current[self.group_id]
 
                 if self.handle_result():
                     new_commands = t.ADMIN_COMMANDS[self.language] + t.LEADER_COMMANDS[self.language]
                     self.send_message(t.YOU_CONFIRMED[self.language].format(new_commands))
-                    BOT.send_message(self.group_chat[0], t.LEADER_CONFIRMED[self.group_chat[1]].format(self.username))
+                    bot.send_message(self.group_chat[0], t.LEADER_CONFIRMED[self.group_chat[1]].format(self.username))
 
                     current[self.chat_id] = self
                     self.send_message(t.ASK_EDU_YEAR[self.language])
@@ -578,10 +578,10 @@ class LeaderConfirmation(Interaction):
                 else:
                     self.send_message(t.YOU_NOT_CONFIRMED[self.language])
                     text = t.LEADER_NOT_CONFIRMED[self.group_chat[1]].format(self.username)
-                    BOT.send_message(self.group_chat[0], text)
+                    bot.send_message(self.group_chat[0], text)
 
         else:  # if the answer is given by the candidate
-            BOT.send_message(self.group_chat[0], t.CHEATING_IN_LC[self.language].format(self.username))
+            bot.send_message(self.group_chat[0], t.CHEATING_IN_LC[self.language].format(self.username))
 
     def handle_result(self) -> bool:
         """
@@ -608,7 +608,7 @@ class LeaderConfirmation(Interaction):
             l.cl.info(l.NOT_CONFIRMED.format(self.chat_id))
 
             for user_id, language in self.late_claimers:
-                BOT.send_message(user_id, t.CANDIDATE_NOT_CONFIRMED[language].format(self.username))
+                bot.send_message(user_id, t.CANDIDATE_NOT_CONFIRMED[language].format(self.username))
 
             return False
 
@@ -822,7 +822,7 @@ class AddingAdmin(Interaction):
         connection.close()
         l.cl.info(l.NOW_ADMIN.format(new_admin_id))
 
-        BOT.send_message(new_admin_id, t.YOU_NOW_ADMIN[new_admin_language].format(t.ADMIN_COMMANDS[new_admin_language]))
+        bot.send_message(new_admin_id, t.YOU_NOW_ADMIN[new_admin_language].format(t.ADMIN_COMMANDS[new_admin_language]))
         query.message.edit_text(t.NOW_ADMIN[self.language].format(new_admin_username))
 
         self.terminate()
@@ -933,7 +933,7 @@ class RemovingAdmin(Interaction):
             self.update_familiarity(self.chat_id, self.familiarity, distrust='1')
 
         if answer == 'y':  # if the answer is positive
-            BOT.send_message(self.admin_id, t.YOU_NO_MORE_ADMIN[self.admin_language])
+            bot.send_message(self.admin_id, t.YOU_NO_MORE_ADMIN[self.admin_language])
             l.cl.info(l.FORMER_NOTIFIED.format(self.admin_id))
             query.message.edit_text(t.FORMER_ADMIN_NOTIFIED[self.language])
         else:  # if the answer is negative
@@ -1190,10 +1190,10 @@ class AddingEvent(Interaction):
 
                 msg = t.NEW_EVENT if int(a.Familiarity(*familiarity).answer_to_notify) else t.FT_NEW_EVENT
                 text = msg[language].format(event[language], choice(t.ASK_TO_NOTIFY[language]))
-                BOT.send_message(chat_id, text, reply_markup=markup[language])
+                bot.send_message(chat_id, text, reply_markup=markup[language])
 
             else:  # if the record is of a non-private chat
-                BOT.send_message(chat_id, t.NEW_EVENT[language].format(event[language], ''))
+                bot.send_message(chat_id, t.NEW_EVENT[language].format(event[language], ''))
 
     def get_related_records(self) -> list[tuple[int, int, int, str]]:
         """
@@ -1374,7 +1374,7 @@ class CancelingEvent(Interaction):
         connection.close()
 
         for user_id, language in student_records:
-            BOT.send_message(user_id, t.EVENT_CANCELED[language].format(event[language]))
+            bot.send_message(user_id, t.EVENT_CANCELED[language].format(event[language]))
 
 
 class SavingInfo(Interaction):
@@ -1455,7 +1455,7 @@ class SavingInfo(Interaction):
         connection.close()
 
         for user_id, language in student_records:
-            BOT.send_message(user_id, t.NEW_INFO[language].format(info))
+            bot.send_message(user_id, t.NEW_INFO[language].format(info))
 
 
 class DeletingInfo(Interaction):
@@ -1624,7 +1624,7 @@ class NotifyingGroup(Interaction):
         message = update.effective_message
 
         for chat_id, language in related_records:
-            BOT.send_message(chat_id, t.GROUP_NOTIFICATION[language].format(self.username))
+            bot.send_message(chat_id, t.GROUP_NOTIFICATION[language].format(self.username))
             message.forward(chat_id)
 
         l.cl.info(l.NOTIFIES.format(self.chat_id, a.cut(message.text)))
@@ -1752,7 +1752,7 @@ class AskingGroup(Interaction):
         if self.is_public:
             asked = t.ASKED[self.group_chat[1]].format(usernames)
             text = t.ANSWER_LIST.format(self.cut_question, '', '', asked)
-            self.group_answer_message_id = BOT.send_message(self.group_chat[0], text).message_id
+            self.group_answer_message_id = bot.send_message(self.group_chat[0], text).message_id
 
             text = t.ASK_LEADER_ANSWER[self.language]
             message_id = self.send_message(text, reply_markup=markup[self.language]).message_id
@@ -1804,7 +1804,7 @@ class AskingGroup(Interaction):
         text = t.ANSWER_LIST.format(self.cut_question, '', '', asked)
 
         try:
-            BOT.edit_message_text(text, self.chat_id, self.leader_answer_message_id, reply_markup=self.stop_markup)
+            bot.edit_message_text(text, self.chat_id, self.leader_answer_message_id, reply_markup=self.stop_markup)
         except BadRequest:
             self.leader_answer_message_id = self.send_message(text, reply_markup=self.stop_markup).message_id
 
@@ -1825,10 +1825,10 @@ class AskingGroup(Interaction):
 
         for user_id, (username, language, familiarity) in self.asked.items():
             current[user_id] = self
-            BOT.forward_message(user_id, self.chat_id, self.question_message_id)
+            bot.forward_message(user_id, self.chat_id, self.question_message_id)
             text = (t.ASK_ANSWER if int(familiarity.answer) else t.FT_ASK_ANSWER)[language]
             info = (t.PUBLIC_ANSWER if self.is_public else t.PRIVATE_ANSWER)[language].format(self.username)
-            message_id = BOT.send_message(user_id, text.format(info), reply_markup=markup[language]).message_id
+            message_id = bot.send_message(user_id, text.format(info), reply_markup=markup[language]).message_id
             self.asked[user_id] = (username, language, familiarity, message_id)
 
         l.cl.info(l.ASKED.format(self.group_id, self.cut_question))
@@ -1865,7 +1865,7 @@ class AskingGroup(Interaction):
             log_text, msg = l.REFUSES.format(chat.id), t.REFUSAL_SENT
 
         l.cl.info(log_text)
-        BOT.edit_message_text(msg[language], chat.id, message_id)
+        bot.edit_message_text(msg[language], chat.id, message_id)
         del self.asked[chat.id]
 
         usernames_answered = '\n\n'.join([f'{username}\n{answer}' for username, answer in self.answered])
@@ -1879,11 +1879,11 @@ class AskingGroup(Interaction):
                                 (usernames_answered, usernames_refused, usernames_asked))
 
         if not self.asked:  # if all of the students have answered
-            BOT.edit_message_reply_markup(self.chat_id, self.leader_answer_message_id)
+            bot.edit_message_reply_markup(self.chat_id, self.leader_answer_message_id)
             self.send_message(t.ALL_ANSWERED[self.language].format(self.cut_question))
             if self.is_public:
                 text = t.ALL_ANSWERED[self.group_chat[1]].format(self.cut_question)
-                BOT.send_message(self.group_chat[0], text)
+                bot.send_message(self.group_chat[0], text)
 
             del current[self.group_id]
             l.cl.info(l.ALL_ANSWERED.format(self.group_id))
@@ -1907,7 +1907,7 @@ class AskingGroup(Interaction):
 
         text = t.ANSWER_LIST.format(self.cut_question, answered, refused, asked)
         markup = self.stop_markup if chat_id == self.chat_id else None
-        BOT.edit_message_text(text, chat_id, answer_message_id, reply_markup=markup)
+        bot.edit_message_text(text, chat_id, answer_message_id, reply_markup=markup)
 
     def respond(self, command: str, message: Message):
         if not self.asked:  # if the second part of the interaction has not been launched
@@ -1923,15 +1923,15 @@ class AskingGroup(Interaction):
         sends them a message explaining that the answer is no longer expected. The the leader's terminating button is
         also deleted.
         """
-        BOT.edit_message_reply_markup(self.chat_id, self.leader_answer_message_id)  # deleting the terminating button
+        bot.edit_message_reply_markup(self.chat_id, self.leader_answer_message_id)  # deleting the terminating button
         if self.chat_id in self.asked:  # if the interaction is public and the leader has yet to respond
-            BOT.edit_message_reply_markup(self.chat_id, self.asked[self.chat_id][3])  # removing the refuse button
+            bot.edit_message_reply_markup(self.chat_id, self.asked[self.chat_id][3])  # removing the refuse button
             del self.asked[self.chat_id]  # the leader is no longer expected to respond
             del current[self.chat_id]  # the leader is no longer having the interaction
 
         for user_id, (_, language, _, message_id) in self.asked.items():
-            BOT.edit_message_reply_markup(user_id, message_id)  # removing the refuse button
-            BOT.send_message(user_id, t.GROUP_ASKING_TERMINATED[1][language])
+            bot.edit_message_reply_markup(user_id, message_id)  # removing the refuse button
+            bot.send_message(user_id, t.GROUP_ASKING_TERMINATED[1][language])
             del current[user_id]  # the student is no longer having the interaction
 
         del current[self.group_id]  # the group is no longer having the interaction
@@ -2039,7 +2039,7 @@ class ChangingLeader(Interaction):
 
         new_commands = '' if self.to_admin else t.ADMIN_COMMANDS[new_leader_language]
         new_commands += t.LEADER_COMMANDS[new_leader_language]
-        BOT.send_message(new_leader_id, t.YOU_NOW_LEADER[new_leader_language].format(new_commands))
+        bot.send_message(new_leader_id, t.YOU_NOW_LEADER[new_leader_language].format(new_commands))
         query.message.edit_text(t.NOW_LEADER[self.language].format(new_leader_username))
         self.terminate()
 

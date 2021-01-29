@@ -6,10 +6,10 @@ from telegram import Update, Chat, Message
 
 import src.interactions as i
 import src.auxiliary as a
+import src.text as t
 from src.bot_info import USERNAME
 import src.config as c
 import src.loggers as l
-import src.text as t
 
 
 def registration(chat: Chat, is_private: bool, message: Message):

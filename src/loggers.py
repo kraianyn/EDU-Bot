@@ -1,7 +1,7 @@
 import logging
 
-BOT_LOG, BOT_LOG_FORMAT = '../log/bot.log', '%(levelname)s | %(asctime)s.%(msecs)d | %(name)s | %(message)s'
-COMMUNICATION_LOG, NOTIFICATION_LOG = '../log/communication.log', '../log/notification.log'
+BOT_LOG, BOT_LOG_FORMAT = 'log/bot.log', '%(levelname)s | %(asctime)s.%(msecs)d | %(name)s | %(message)s'
+COMMUNICATION_LOG, NOTIFICATION_LOG = 'log/communication.log', 'log/notification.log'
 LOG_FORMAT, TIME_FORMAT = '%(levelname)s | %(asctime)s | %(message)s', '%Y.%m.%d %H:%M:%S'
 
 # ------------------------------------------------------------------------------------------------------------- loggers
@@ -14,6 +14,7 @@ cl.setLevel(logging.DEBUG)
 
 # ----------------------------------------------------------------------------------------------------------------- bot
 
+GRADUATES = '{} graduates, {} chats deleted'
 CT_STARTS, NT_STARTS = 'communication thread starts', 'notification thread starts'
 
 # ------------------------------------------------------------------------------------------------------- communication
