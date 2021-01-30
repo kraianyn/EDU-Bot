@@ -10,7 +10,7 @@ from telegram.ext import CommandHandler, CallbackQueryHandler, MessageHandler, F
 import src.interactions as i
 import src.brain as b
 import src.managers as m
-from src.config import THRESHOLD, DATABASE
+from src.config import THRESHOLD_DATE, DATABASE
 import src.loggers as l
 
 logging.basicConfig(filename=l.BOT_LOG, filemode='w', format=l.BOT_LOG_FORMAT, datefmt=l.TIME_FORMAT,
@@ -19,7 +19,7 @@ logging.basicConfig(filename=l.BOT_LOG, filemode='w', format=l.BOT_LOG_FORMAT, d
 # ----------------------------------------------------------------------------------------------- cleaning the database
 
 now = datetime.now()
-if now.month >= THRESHOLD[0] and now.day >= THRESHOLD[1]:
+if now.month >= THRESHOLD_DATE[0] and now.day >= THRESHOLD_DATE[1]:
     graduation_year = now.year - 2000
 
     connection = connect(DATABASE)

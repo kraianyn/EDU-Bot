@@ -360,7 +360,7 @@ def deleting_data(record: a.ChatRecord, update: Update):
             chat.send_message(t.RESIGN_FIRST[record.language])
 
     else:  # if the chat is not private
-        chat.send_message(t.LEAVING_IN_GROUPS[record.language], reply_to_message_id=update.effective_message.message_id)
+        chat.send_message(t.DELETING_DATA_IN_GROUPS[record.language], reply_to_message_id=update.effective_message.message_id)
         l.cl.info(l.LEAVE_NOT_PRIVATELY.format(record.id, chat.id))
 
 

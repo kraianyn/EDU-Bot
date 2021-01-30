@@ -1019,14 +1019,24 @@ ONGOING_ANSWERING = (
 
 # ----------------------------------------------------------------------------------------------------- changing leader
 
-FT_ASK_NEW_LEADER = (
+FT_ASK_RESIGN = (
     '',
-    'FT_ASK_NEW_LEADER',
+    'FT_ASK_RESIGN',
+    ''
+)
+ASK_RESIGN = (
+    '',
+    'ASK_RESIGN',
     ''
 )
 ASK_NEW_LEADER = (
     '',
     'ASK_NEW_LEADER',
+    ''
+)
+AUTHORITIES_KEPT = (
+    '',
+    'AUTHORITIES_KEPT',
     ''
 )
 YOU_NOW_LEADER = (
@@ -1101,12 +1111,12 @@ ALREADY_SENDING_FEEDBACK = (
 
 # ------------------------------------------------------------------------------------------------------- deleting data
 
-FT_ASK_LEAVING = (
+FT_ASK_LEAVE = (
     '',
     'FT_ASK_LEAVING',
     ''
 )
-ASK_LEAVING = (
+ASK_LEAVE = (
     '',
     'ASK_LEAVING',
     ''
@@ -1124,7 +1134,7 @@ DATA_KEPT = (
 
 # ------------------------------------------------------------------------------------------ deleting data (exceptions)
 
-LEAVING_IN_GROUPS = (
+DELETING_DATA_IN_GROUPS = (
     '',
     'LEAVING_IN_GROUPS',
     ''
@@ -1134,12 +1144,12 @@ RESIGN_FIRST = (
     'RESIGN_FIRST',
     ''
 )
-ONGOING_LEAVING = (
+ONGOING_DELETING_DATA = (
     '',
     'ONGOING_LEAVING',
     ''
 )
-ALREADY_LEAVING = (
+ALREADY_DELETING_DATA = (
     '',
     'ALREADY_LEAVING',
     ''

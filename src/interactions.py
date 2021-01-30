@@ -340,7 +340,8 @@ class Registration(Interaction):
 
             self.determine_group_id(group_name)
             self.create_record(update, registered_at, group_name)
-            a.update_group_chat_language(self.group_id)
+            if not self.is_first:
+                a.update_group_chat_language(self.group_id)
 
             self.send_message(t.INTRODUCTION[self.is_student][self.language])
             self.report_on_related_chats(entered_group_name)
@@ -415,8 +416,8 @@ class Registration(Interaction):
             cursor.execute(  # creating a user record
                 'INSERT INTO chats (id, type, username, language, group_id, role, familiarity, registered)'
                 'VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-                (self.chat_id, type_index, self.username, self.language, self.group_id, *c.STATIC_INITIAL_STUDENT,
-                 registered_at)
+                (self.chat_id, type_index, self.username, self.language, self.group_id, c.INITIAL_ROLE,
+                 c.INITIAL_FAMILIARITY, registered_at)
             )
         else:
             self.username = chat.username or chat.title  # username / title
@@ -698,7 +699,7 @@ class LeaderConfirmation(Interaction):
         Returns (int): year that the group graduates in.
         """
         now = datetime.now()
-        is_first_term = now.month >= c.THRESHOLD[0] and now.day >= c.THRESHOLD[1]
+        is_first_term = now.month >= c.THRESHOLD_DATE[0] and now.day >= c.THRESHOLD_DATE[1]
         graduation_year = now.year + (all_edu_years - current_edu_year) + is_first_term
 
         connection = connect(c.DATABASE)
@@ -1168,8 +1169,6 @@ class AddingEvent(Interaction):
         notification about the new event to chats that are related to the admin's group. Each student is also asked
         whether they want the bot to send them reminders about the event.
         """
-        related_records = self.get_related_records()
-
         # the event with the weekday in each language
         event = tuple(f'{t.WEEKDAYS[self.weekday_index][index]} {self.event[2:]}' for index in range(len(c.LANGUAGES)))
 
@@ -1182,7 +1181,7 @@ class AddingEvent(Interaction):
         )
         markup = tuple(InlineKeyboardMarkup(buttons) for buttons in answers)
 
-        for chat_id, chat_type, language, familiarity in related_records:
+        for chat_id, chat_type, language, familiarity in self.get_related_records():
 
             if not chat_type:  # if the record is of a private chat
                 current[chat_id] = self  # the student is now answering whether they want to be notified about the event
@@ -1241,30 +1240,30 @@ class AddingEvent(Interaction):
         if not int(familiarity.answer_to_notify):
             Interaction.update_familiarity(chat_id, familiarity, answer_to_notify='1')
 
-        has_passed = self.date < datetime.now()
-
-        if answer == 'y':  # if the answer is positive
-            if not has_passed:
-                update.effective_chat.send_message('Mock action of considering the agreement')
+        if self.date > datetime.now():  # if the event has not already passed
+            if answer == 'y':  # if the answer is positive
+                self.add_student(chat_id)
                 log_msg, msg = l.AGREES, t.EXPECT_NOTIFICATIONS
-            else:
-                log_msg, msg = l.AGREES_LATE, t.WOULD_EXPECT_NOTIFICATIONS
-
-        else:  # if the answer is negative
-            if not has_passed:
+            else:  # if the answer is negative
                 log_msg, msg = l.DISAGREES, t.EXPECT_NO_NOTIFICATIONS
-            else:
+
+        else:  # if the event has passed or has been canceled
+            if answer == 'y':  # if the answer is positive
+                log_msg, msg = l.AGREES_LATE, t.WOULD_EXPECT_NOTIFICATIONS
+            else:  # if the answer is negative
                 log_msg, msg = l.DISAGREES_LATE, t.WOULD_EXPECT_NO_NOTIFICATIONS
 
         l.cl.info(log_msg.format(chat_id, self.cut_event))
         event = query.message.text.rpartition('\n\n')[0]
         query.message.edit_text(f"{event}\n\n{msg[record.language]}")
 
+        del current[chat_id]
         self.num_to_answer -= 1
-        if not self.num_to_answer:  # if the student is the last one to have answered
+        if not self.num_to_answer:  # if the student is the last one to answer
             l.cl.info(l.ALL_ANSWERED_TO_NOTIFY.format(self.group_id, self.cut_event))
 
-        del current[chat_id]
+    def add_student(self, user_id):
+        pass  # todo
 
 
 class CancelingEvent(Interaction):
@@ -1947,12 +1946,30 @@ class ChangingLeader(Interaction):
         super().__init__(record)
         self.to_admin = True  # whether the authorities will be given to an admin
 
-        self.ask_new_leader()
-        self.next_action = self.change_leader
+        self.ask_polar((t.FT_ASK_RESIGN if not self.is_familiar else t.ASK_RESIGN)[self.language])
+        self.next_action = self.handle_answer
+
+    def handle_answer(self, update: Update):
+        query = update.callback_query
+
+        try:
+            answer = query.data
+        except AttributeError:  # if the update is not caused by giving the answer
+            return  # no response
+
+        if not self.is_familiar:  # if the user is using /resign for the first time
+            self.update_familiarity(self.chat_id, self.familiarity, resign='1')
+
+        if answer == 'y':  # if the answer is positive
+            self.ask_new_leader()
+            self.next_action = self.change_leader
+        else:  # if the answer is negative
+            query.message.edit_text(t.AUTHORITIES_KEPT[self.language])
+            self.terminate()
 
     def ask_new_leader(self):
         """
-        This method makes the bot ask the leader which of their group's students their authorities will be given to. The
+        This method makes the bot ask the leader which of their groupmates their authorities will be given to. The
         options are the group's admins (or ordinary students) and are provided as inline buttons.
         """
         candidates = [
@@ -1961,8 +1978,7 @@ class ChangingLeader(Interaction):
         ]
         markup = InlineKeyboardMarkup(candidates)
 
-        text = (t.FT_ASK_NEW_LEADER if not self.is_familiar else t.ASK_NEW_LEADER)[self.language]
-        self.send_message(text, reply_markup=markup)
+        self.send_message(t.ASK_NEW_LEADER[self.language], reply_markup=markup)
 
     def get_candidate_records(self) -> list[tuple[int, str, int]]:
         """
@@ -2092,13 +2108,13 @@ class SendingFeedback(Interaction):
 
 class DeletingData(Interaction):
     COMMAND, IS_PRIVATE = 'leave', False
-    ONGOING_MESSAGE, ALREADY_MESSAGE = t.ONGOING_LEAVING, t.ALREADY_LEAVING
+    ONGOING_MESSAGE, ALREADY_MESSAGE = t.ONGOING_DELETING_DATA, t.ALREADY_DELETING_DATA
 
     def __init__(self, record: a.ChatRecord, is_last: bool):
         super().__init__(record)
         self.is_last = is_last
 
-        self.ask_polar((t.FT_ASK_LEAVING if not self.is_familiar else t.ASK_LEAVING)[self.language])
+        self.ask_polar((t.FT_ASK_LEAVE if not self.is_familiar else t.ASK_LEAVE)[self.language])
         self.next_action = self.handle_answer
 
     def handle_answer(self, update: Update):

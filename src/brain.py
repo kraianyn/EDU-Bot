@@ -83,8 +83,7 @@ def text_handler(update: Update, _):
         update (telegram.Update): update received after the text message is received.
         _ (telegram.CallbackContext): context object passed by the MessageHandler. Not used.
     """
-    chat_id = update.effective_chat.id
-    if chat_id in i.current:
+    if (chat_id := update.effective_chat.id) in i.current:
         i.current[chat_id].next_action(update)
 
 
