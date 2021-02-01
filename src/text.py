@@ -419,7 +419,7 @@ YOU_NOW_ADMIN = (
 )
 NOW_ADMIN = (
     '',
-    '{} is now an admin. Gonna let him know.',
+    '{} is now an admin. Gonna let them know.',
     ''
 )
 
@@ -614,8 +614,13 @@ INVALID_MINUTE = (
     'INVALID_MINUTE',
     ''
 )
+ALREADY_ADDED = (
+    '',
+    "Someone's already added this event, I swear it's not me",
+    ''
+)
 
-# -------------------------------------------------------------------------------------------- adding event (answering)
+# ----------------------------------------------------------------------------------------------------- event answering
 
 FT_NEW_EVENT = (
     '',
@@ -627,33 +632,40 @@ NEW_EVENT = (
     'New event:\n\n{}\n\n{}',
     ''
 )
-ASK_TO_NOTIFY = (
+EVENT_QUESTION = (
     ('Чи нагадувати мені про неї?', 'Мені варто нагадувати про неї?'),
     (
-        'Should I notify you about it?',
-        'Should I notify you about this one?',
-        'Do you want me to notify you about it?',
-        'Do you want me to notify you about this one?'
+        'Should I remind you about it?',
+        'Should I remind you about this one?',
+        'Do you want me to remind you about it?',
+        'Do you want me to remind you about this one?'
     ),
     ('', '')
 )
 EXPECT_NOTIFICATIONS = (
     '',
-    'I will notify you',
+    ('I will remind you', 'You will receive reminders'),
     ''
 )
 EXPECT_NO_NOTIFICATIONS = (
     '',
-    "I won't notify you",
+    ("I won't remind you", "You won't receive reminders"),
     ''
 )
 
-# ------------------------------------------------------------------------------- adding event (answering) (exceptions)
+# ---------------------------------------------------------------------------------------- event answering (exceptions)
 
-ONGOING_ANSWERING_TO_NOTIFY = (
-    '',
-    'ONGOING_ANSWERING_TO_NOTIFY',
-    ''
+ONGOING_EVENT_ANSWERING = (
+    (
+        '',
+        "Sure, but let's deal with the event first",
+        ''
+    ),
+    (
+        '',
+        'Sure, but can you answer to these {} events first?',
+        ''
+    )
 )
 WOULD_EXPECT_NOTIFICATIONS = (
     '',

@@ -12,7 +12,7 @@ ChatRecord = namedtuple(
 )
 Familiarity = namedtuple(  # familiarity with the bot's interactions
     'Familiarity',
-    ('commands', 'trust', 'distrust', 'new', 'cancel', 'answer_to_notify', 'save', 'delete', 'clear', 'tell', 'ask',
+    ('commands', 'trust', 'distrust', 'new', 'cancel', 'event_answer', 'save', 'delete', 'clear', 'tell', 'ask',
      'answer', 'resign', 'feedback', 'leave')
 )
 
@@ -45,7 +45,7 @@ def get_chat_record(chat_id: int) -> Union[ChatRecord, None]:
     return record
 
 
-def string_sort_key(string: str) -> int:
+def str_sort_key(string: str) -> int:
     """
     This function serves as a key for sorting strings in Ukrainian, English and Russian. It only considers alphabetical
     letters of these languages. It is needed because Unicode order is sometimes different from the alphabetical one.
@@ -90,23 +90,29 @@ def update_group_chat_language(group_id: int):
     l.cl.info(l.GROUP_LANGUAGE_UPDATED.format(group_id, LANGUAGES[common_language], spoken_by))
 
 
-def str_to_datetime(string: str) -> datetime:
+def str_to_datetime(event: str) -> datetime:
     """
-    This function converts string that contains date in the beginning to datetime.datetime of the date. The date's
-    format is one of the two that date is stored in the database in: '%u %d.%m' or '%u %d.%m, %H:%M' (actually, (%u - 1)
-    instead of %u, but the first 2 characters of the string do not matter anyway).
-
     Args:
-        string (str): string containing date in the format according to src.config.DATE_PATTERN.
+        event (str): string that begins with date in one of the two formats that date is stored in the database in:
+            '%u %d.%m' or '%u %d.%m, %H:%M' (actually, (%u - 1) instead of %u, Monday to Sunday = 0 to 6).
+
+    Returns (datetime.datetime): datetime.datetime of the date that the given string begins with.
     """
-    day, month, hour, minute = int(string[2:4]), int(string[5:7]), 23, 59
-    if string[7] == ',':  # if the event contains time
-        hour, minute = int(string[9:11]), int(string[12:14])
+    weekday_index, day, month, hour, minute = int(event[0]), int(event[2:4]), int(event[5:7]), 23, 59
+    if event[7] == ',':  # if the event contains time
+        hour, minute = int(event[9:11]), int(event[12:14])
 
     now = datetime.now()
     date_this_year = datetime(now.year, month, day, hour, minute)
+    weekday_index_this_year = int(date_this_year.strftime('%u')) - 1
 
-    return date_this_year if now < date_this_year else datetime(now.year + 1, month, day, hour, minute)
+    if weekday_index > weekday_index_this_year or (weekday_index == 0 and weekday_index_this_year == 6):
+        return datetime(now.year + 1, month, day, hour, minute)
+
+    if weekday_index < weekday_index_this_year or (weekday_index == 6 and weekday_index_this_year == 0):
+        return datetime(now.year - 1, month, day, hour, minute)
+
+    return date_this_year
 
 
 def cut(string: str):

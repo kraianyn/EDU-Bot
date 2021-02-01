@@ -45,18 +45,19 @@ NO_MORE_ADMIN, FORMER_NOTIFIED = '{} is no more an admin', '{} is notified that 
 INVOLVING_GROUP_ALONE = '{} uses /{} alone'
 NOW_LEADER = "{} is made the leader"
 
-ADDS = '{} adds "{}"'
+ADDS, ASKED_EVENT = '{} adds "{}"', 'students of {} are asked about "{}"'
+ADDS_DUPLICATE = '{} attempts to add a duplicate of "{}"'
 AGREES, DISAGREES = '{} agrees to be notified about "{}"', '{} disagrees to be notified about "{}"'
 AGREES_LATE = '{} agrees to be notified about "{}" after it has passed'
 DISAGREES_LATE = '{} disagrees to be notified about "{}" after it has passed'
-ALL_ANSWERED_TO_NOTIFY = 'all students of {} have answered concerning reminding about "{}"'
+ALL_ANSWERED_EVENT = 'all students of {} have answered concerning reminding about "{}"'
 CANCEL_WITHOUT_EVENTS, CANCELS = '{} uses /cancel without events', '{} cancels "{}"'
 
 SAVES, CLEARS, KEEPS = '{} saves "{}"', "{} clears info", "{} refuses to clear info"
 DELETE_WITHOUT_INFO, DELETES = "{} uses /{} without info", '{} deletes "{}"'
 
-NOTIFIES = '{} notifies the group with "{}"'
-MAKES_PUBLIC, MAKES_NON_PUBLIC = '{} makes the answers public', '{} chooses to not make the answers public'
+NOTIFIED = 'students of {} are notified about "{}"'
+MAKES_PUBLIC, MAKES_NON_PUBLIC = '{} makes the answers public', '{} makes the answers non-public'
 ASKED = 'students of {} are asked "{}"'
 ANSWERS, REFUSES = '{} answers with "{}"', '{} refuses to answer'
 ALL_ANSWERED, TERMINATES = 'all students of {} have answered', '{} terminates asking'
