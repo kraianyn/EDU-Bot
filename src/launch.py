@@ -61,6 +61,9 @@ dispatcher.add_handler(PollAnswerHandler(b.poll_answer_handler))
 # ------------------------------------------------------------------------------ communication and notification threads
 
 communication_thread = Thread(target=i.updater.start_polling)
+notification_thread = Thread(target=b.notification)
 
 communication_thread.start()
 logging.info(l.CT_STARTS)
+notification_thread.start()
+logging.info(l.NT_STARTS)

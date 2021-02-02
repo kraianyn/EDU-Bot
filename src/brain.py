@@ -1,11 +1,15 @@
+from time import sleep
+from datetime import datetime, timedelta
+
 from telegram import Update, Chat
 
 import src.interactions as i
 from src.managers import COMMANDS
+import src.notification as n
 import src.auxiliary as a
 from src.text import REGISTRATION_NEEDED
 from src.bot_info import USERNAME
-from src.config import LEADER_ROLE
+from src.config import LEADER_ROLE, NOTIFICATION_TIME
 from src.loggers import cl, UNAVAILABLE_COMMAND
 
 
@@ -98,3 +102,14 @@ def poll_answer_handler(update: Update, _):
     """
     if record := a.get_chat_record(update.effective_user.id):  # if the user is registered
         i.current[record.group_id].next_action(update)
+
+
+# -------------------------------------------------------------------------------------------------------- notification
+
+def notification():
+    while True:
+        n.remind_about_events()
+
+        now = datetime.now()
+        notification_time_tomorrow = datetime(now.year, now.month, now.day, *NOTIFICATION_TIME) + timedelta(days=1)
+        sleep((notification_time_tomorrow - now).total_seconds())

@@ -4,20 +4,18 @@ BOT_LOG, BOT_LOG_FORMAT = 'log/bot.log', '%(levelname)s | %(asctime)s.%(msecs)d 
 COMMUNICATION_LOG, NOTIFICATION_LOG = 'log/communication.log', 'log/notification.log'
 LOG_FORMAT, TIME_FORMAT = '%(levelname)s | %(asctime)s | %(message)s', '%Y.%m.%d %H:%M:%S'
 
-# ------------------------------------------------------------------------------------------------------------- loggers
-
-cl = logging.getLogger('communication')  # communication logger
-file_handler = logging.FileHandler(COMMUNICATION_LOG, 'w', 'utf8')
-file_handler.setFormatter(logging.Formatter(LOG_FORMAT, TIME_FORMAT))
-cl.addHandler(file_handler)
-cl.setLevel(logging.DEBUG)
-
 # ----------------------------------------------------------------------------------------------------------------- bot
 
 GRADUATES = '{} graduates, {} chats deleted'
 CT_STARTS, NT_STARTS = 'communication thread starts', 'notification thread starts'
 
 # ------------------------------------------------------------------------------------------------------- communication
+
+cl = logging.getLogger('communication')  # communication logger
+file_handler = logging.FileHandler(COMMUNICATION_LOG, 'w', 'utf8')
+file_handler.setFormatter(logging.Formatter(LOG_FORMAT, TIME_FORMAT))
+cl.addHandler(file_handler)
+cl.setLevel(logging.DEBUG)
 
 UNAVAILABLE_COMMAND = '{} uses /{} with role {}'
 STARTS_NOT_PRIVATELY = '{} is invited to continue {} privately'
@@ -65,3 +63,18 @@ ALL_ANSWERED, TERMINATES = 'all students of {} have answered', '{} terminates as
 SENDS_FEEDBACK = '{} sends feedback "{}"'
 
 INFO, EVENTS = '{} displays info', '{} displays events'
+
+# -------------------------------------------------------------------------------------------------------- notification
+
+nl = logging.getLogger('notification')  # notification logger
+file_handler = logging.FileHandler(NOTIFICATION_LOG, 'w', 'utf8')
+file_handler.setFormatter(logging.Formatter(LOG_FORMAT, TIME_FORMAT))
+nl.addHandler(file_handler)
+nl.setLevel(logging.DEBUG)
+
+REMINDING_STARTS = 'reminding starts'
+GROUP_REMINDED = '{} student(s) from {} reminded about {} event(s)'
+REMINDING_FINISHES = 'reminding finishes'
+
+ECAMPUS_NOTIFICATION_STARTS = 'e-campus notification starts'
+ECAMPUS_NOTIFICATION_FINISHES = 'e-campus notification finishes'

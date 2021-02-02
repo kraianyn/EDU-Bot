@@ -13,6 +13,21 @@ WEEKDAYS = (
     ('Сб', 'Sat', 'Сб'),
     ('Нд', 'Sun', 'Вс')
 )
+TODAY = (
+    '',
+    'Today:\n\n{}',
+    ''
+)
+TOMORROW = (
+    '',
+    'Tomorrow:\n\n{}',
+    ''
+)
+DAYS_LEFT = (
+    '',
+    'In {} days:\n\n{}',
+    ''
+)
 PRIVATE_INTERACTION = (
     '',
     'PRIVATE_INTERACTION',
