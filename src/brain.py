@@ -13,7 +13,7 @@ from src.config import LEADER_ROLE, NOTIFICATION_TIME
 from src.loggers import cl, UNAVAILABLE_COMMAND
 
 
-# ------------------------------------------------------------------------------------------------------- communication
+# -------------------------------------------------------------------------------------------------------- communication
 
 def command_handler(update: Update, _):
     """
@@ -104,7 +104,7 @@ def poll_answer_handler(update: Update, _):
         i.current[record.group_id].next_action(update)
 
 
-# -------------------------------------------------------------------------------------------------------- notification
+# --------------------------------------------------------------------------------------------------------- notification
 
 def notification():
     while True:

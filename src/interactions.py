@@ -6,7 +6,7 @@ from re import findall
 from sqlite3 import connect
 
 from telegram.ext import Updater
-from telegram import Update, Chat, Message, InlineKeyboardButton, InlineKeyboardMarkup, CallbackQuery
+from telegram import Update, Chat, Message, InlineKeyboardButton, InlineKeyboardMarkup, CallbackQuery, ParseMode
 from telegram.error import BadRequest
 
 import src.auxiliary as a
@@ -1180,6 +1180,7 @@ class AddingEvent(Interaction):
         currently_asked = tuple(
             r[0] for r in student_records if r[0] in current and isinstance(current[r[0]], EventAnswering)
         )
+        event_answering = EventAnswering(self.group_id) if not currently_asked else current[currently_asked[0]]
 
         # the event with the weekday in each language
         event = tuple(f'{t.WEEKDAYS[self.weekday_index][index]} {self.event[2:]}' for index in range(len(c.LANGUAGES)))
@@ -1193,37 +1194,23 @@ class AddingEvent(Interaction):
         )
         markup = tuple(InlineKeyboardMarkup(buttons) for buttons in answers)
 
-        if not currently_asked:  # if none of the group's students have unanswered events
-            event_answering = EventAnswering(self.group_id, self.event, [r[0] for r in student_records])
+        asked = list[tuple[int, int]]()
+        for user_id, language, familiarity in student_records:
 
-            for user_id, language, familiarity in student_records:
+            if user_id not in currently_asked:  # if the student has no unanswered events
                 current[user_id] = event_answering
 
                 msg = t.NEW_EVENT if int(a.Familiarity(*familiarity).event_answer) else t.FT_NEW_EVENT
                 text = msg[language].format(event[language], choice(t.EVENT_QUESTION[language]))
-                bot.send_message(user_id, text, reply_markup=markup[language])
 
-        else:  # if any of the group's students has unanswered events
-            event_answering, asked = current[currently_asked[0]], list[int, tuple[int, int]]()
+                asked.append((user_id, bot.send_message(user_id, text, reply_markup=markup[language]).message_id))
 
-            for user_id, language, familiarity in student_records:
+            else:  # if the student has unanswered events
+                text = t.NEW_EVENT[language].format(event[language], '')
 
-                if user_id not in currently_asked:
-                    current[user_id] = event_answering
+                asked.append((user_id, bot.send_message(user_id, text).message_id))
 
-                    msg = t.NEW_EVENT if int(a.Familiarity(*familiarity).event_answer) else t.FT_NEW_EVENT
-                    text = msg[language].format(event[language], choice(t.EVENT_QUESTION[language]))
-
-                    bot.send_message(user_id, text, reply_markup=markup[language])
-                    asked.append(user_id)
-
-                else:
-                    text = t.NEW_EVENT[language].format(event[language], '')
-
-                    message_id = bot.send_message(user_id, text).message_id
-                    asked.append((user_id, message_id))
-
-            event_answering.add_event(self.event, asked)
+        event_answering.add_event(self.event, asked)
 
         for chat_id, language in group_chat_records:
             bot.send_message(chat_id, t.NEW_EVENT[language].format(event[language], ''))
@@ -1256,10 +1243,9 @@ class AddingEvent(Interaction):
 
 
 class EventAnswering:
-    def __init__(self, group_id: int, event: str, asked: list[int]):
+    def __init__(self, group_id: int):
         self.group_id = group_id
-        self.queue = OrderedDict[str, list[int, tuple[int, int]]]()
-        self.queue[event] = asked
+        self.queue = OrderedDict[str, list[tuple[int, int]]]()
 
         self.next_action = self.handle_answer
 
@@ -1285,7 +1271,7 @@ class EventAnswering:
         user_id = update.effective_user.id
         record = a.get_chat_record(user_id)
         language, familiarity = record.language, a.Familiarity(*record.familiarity)
-        event, index = self.determine_event(user_id)
+        event, event_index, user_index = self.determine_event(user_id)
         cut_event = a.cut(event)
 
         # if the user is answering for the first time whether they want to be reminded about the event
@@ -1308,27 +1294,29 @@ class EventAnswering:
         event_text = query.message.text.rpartition('\n\n')[0]
         query.message.edit_text(f"{event_text}\n\n{text}")
 
-        if index == len(self.queue) - 1:  # if the event is the last one in the queue
+        if event_index == len(self.queue) - 1:  # if the event is the last one in the queue
             del current[user_id]  # the user has answered concerning all the events
         else:  # if the event is not the last one in the queue
-            self.ask_next_event(user_id, index, language)
+            self.ask_next_event(user_id, event_index, language)
 
         if len(self.queue[event]) != 1:  # if the user is not the only one who had not answered about the event
-            self.queue[event].remove(user_id)
+            del self.queue[event][user_index]
         else:  # if the user is the only one who had not answered about the event
             del self.queue[event]
             l.cl.info(l.ALL_ANSWERED_EVENT.format(self.group_id, cut_event))
 
-    def determine_event(self, user_id: int) -> tuple[str, int]:
+    def determine_event(self, user_id: int) -> tuple[str, int, int]:
         """
         Args:
             user_id (int): id of the group's student who is asked about an event.
 
-        Returns (tuple[str, int]): event that the student is currently asked about, and its index in the queue.
+        Returns (tuple[str, int, int]): event that the student is currently asked about, its index in the queue, and the
+            student's index in the list of all students who are (will be) asked about the same event.
         """
-        for i, (event, asked) in enumerate(self.queue.items()):
-            if user_id in asked:
-                return event, i
+        for event_index, (event, asked) in enumerate(self.queue.items()):
+            for asked_user_index, (asked_user_id, message_id) in enumerate(asked):
+                if asked_user_id == user_id:
+                    return event, event_index, asked_user_index
 
     def update_event(self, event: str, user_id: int):
         """
@@ -1360,20 +1348,19 @@ class EventAnswering:
         cursor.close()
         connection.close()
 
-    def ask_next_event(self, user_id: int, index: int, language: int):
+    def ask_next_event(self, user_id: int, event_index: int, language: int):
         """
         This method makes the bot ask the student whether they want to be reminded about the next event in the queue.
 
         Args:
             user_id (int): id of the student that will be asked about the next event.
-            index (int): queue index of the event that the student has just answered about.
+            event_index (int): queue index of the event that the student has just answered about.
             language(int): the student's language.
         """
-        next_event = tuple(self.queue.keys())[index + 1]
+        next_event = tuple(self.queue.keys())[event_index + 1]
 
-        for i, user in enumerate(self.queue[next_event]):
-            if isinstance(user, tuple) and user[0] == user_id:
-                self.queue[next_event][i] = user_id
+        for user in self.queue[next_event]:
+            if user[0] == user_id:
                 message_id = user[1]
                 break
 
@@ -1388,16 +1375,17 @@ class EventAnswering:
 
         bot.edit_message_text(text, user_id, message_id, reply_markup=markup)
 
-    def add_event(self, event: str, asked: list[int, tuple[int, int]]):
+    def add_event(self, event: str, asked: list[tuple[int, int]]):
         """
         This method adds an event to the queue.
 
         Args:
             event (str): event that will be added.
-            asked (list[int, tuple[int, int]]): ids of students who are asked whether they want to be reminded about the
-                event, and tuples representing students who are yet to be asked and only have been sent a notification
-                about it (a tuple contains the student's id and id of the notification message, so that it can be edited
-                later to include the question).
+            asked (list[tuple[int, int]]): list of tuples representing students who are (will be) asked whether they
+                want to be reminded about the event (a tuple contains the student's id and id of the new-event
+                notification message, so that it can be deleted if the event is canceled or passes, or edited to include
+                the question about the event if the user is yet to be asked about it and has only been sent a
+                notification).
         """
         self.queue[event] = asked
 
@@ -1409,7 +1397,35 @@ class EventAnswering:
 
         Returns (bool): whether the student has answered about the event.
         """
-        return user_id not in tuple(user if isinstance(user, int) else user[0] for user in self.queue[event])
+        return user_id not in tuple(user[0] for user in self.queue[event])
+
+    def cancel_question(self, user_id: int, event: str, language: int):
+        """
+        This method makes the bot delete the event from the student's queue. If they are currently asked about it, the
+        student is asked whether they want to be reminded about the next event in the queue.
+
+        Args:
+            user_id (int): id of the user whose queue the event will be removed from.
+            event (str): event that will be removed from the student's queue.
+            language (int): index of the student's language, according to src.config.LANGUAGES.
+        """
+        for user in self.queue[event]:
+            if user[0] == user_id:
+                self.queue[event].remove(user)
+                bot.delete_message(user_id, user[1])  # deleting the question about the event
+                break
+
+        event_index = tuple(self.queue.keys()).index(event)
+
+        # if the student is currently asked about the event
+        if not event_index or user_id not in tuple(user[0] for user in tuple(self.queue.values())[event_index - 1]):
+            if event_index != len(self.queue) - 1:  # it the event is not the last one in the queue
+                self.ask_next_event(user_id, event_index, language)
+            else:  # it the event is the last one in the queue
+                del current[user_id]
+
+        if not self.queue[event]:  # if there are no students left who are answered about the event
+            del self.queue[event]
 
     def respond(self, command: str, message: Message):
         """
@@ -1420,12 +1436,12 @@ class EventAnswering:
         l.cl.info(l.INTERRUPTS.format(message.from_user.id, command, type(self).__name__))
 
         user_id = message.from_user.id
-        event, index = self.determine_event(user_id)
+        event_index = self.determine_event(user_id)[1]
         queue_length = len(self.queue)
         language = a.get_chat_record(user_id).language
 
-        text = t.ONGOING_EVENT_ANSWERING[0][language] if index == queue_length - 1 \
-            else t.ONGOING_EVENT_ANSWERING[1][language].format(queue_length - index)
+        text = t.ONGOING_EVENT_ANSWERING[0][language] if event_index == queue_length - 1 \
+            else t.ONGOING_EVENT_ANSWERING[1][language].format(queue_length - event_index)
         message.reply_text(text, quote=message.chat.type != Chat.PRIVATE)
 
 
@@ -1520,10 +1536,16 @@ class CancelingEvent(Interaction):
         self.notify(translated_event, event)
         self.terminate()
 
-    def notify(self, translated_event: tuple[str], event: str):
+    def notify(self, event: str, translated_event: tuple[str]):
         """
         This method is the last step of canceling an event, which the interaction is terminates after. It sends a
-        notification to chats that are related to the admin's group, letting them know that the event has been canceled.
+        notification to group chats of the admin's group and the admin's groupmates who have agreed to be reminded about
+        the event, letting them know that the event has been canceled. Questions to students who have not answered about
+        the event are simple deleted.
+
+        Args:
+            event (str): the canceled event.
+            translated_event (tuple[str]): the canceled event in each language, according to src.config.LANGUAGES.
         """
         connection = connect(c.DATABASE)
         cursor = connection.cursor()
@@ -1540,9 +1562,10 @@ class CancelingEvent(Interaction):
 
         for chat_id, language in related_records:
             if chat_id not in current or not isinstance(current[chat_id], EventAnswering) \
-                    or current[chat_id].has_answered(chat_id, event):  # if the chat has answered about the event
+                    or current[chat_id].has_answered(chat_id, event):  # if the student has answered about the event
                 bot.send_message(chat_id, t.EVENT_CANCELED[language].format(translated_event[language]))
-            # todo: if the chat is answering about the event or has yet to be asked about it
+            else:  # if the student has not answered about the event
+                current[chat_id].cancel_question(chat_id, event, language)
 
 
 class SavingInfo(Interaction):
@@ -1807,7 +1830,7 @@ class NotifyingGroup(Interaction):
         connection = connect(c.DATABASE)
         cursor = connection.cursor()
 
-        cursor.execute(
+        cursor.execute(  # chats related to the admin's group w/o the leader
             'SELECT id, language FROM chats '
             'WHERE group_id = ? AND id <> ?',
             (self.group_id, self.chat_id)
@@ -1904,23 +1927,38 @@ class AskingGroup(Interaction):
     def launch(self):
         """
         This method launches the second part of the interaction, which consists of receiving the students' answers.
-        It makes the bot send a message to the leader, that contains information about the answers, refusals and
-        students who have yet to respond. It also makes the bot send the question to the leader's groupmates. If the
-        interaction is public, the answer message is also sent to the group's group chat, and the leader is also asked
-        the question.
+        It makes the bot send a message (answer list) to the leader, that contains information about the students'
+        answers, refusals and students who have yet to respond. It also makes the bot send the question to the leader's
+        groupmates.
+
+        If the interaction is public, the answer list is also sent to the group chat, and the leader is also
+        asked the question. Ids of the answer lists are saved so that they can be updated later to include new
+        answers and refusals.
         """
         self.ONGOING_MESSAGE = t.ONGOING_ANSWERING
         if not self.is_familiar:  # if the leader is asking their group for the first time
             self.update_familiarity(self.chat_id, self.familiarity, ask='1')
 
         self.asked = self.get_asked()
-        usernames = self.send_answer_list()
+
+        usernames = [r[0] for r in self.asked.values()]
+        if self.is_public:
+            usernames.append(self.username)
+        usernames.sort(key=a.str_sort_key)
+        usernames = '\n'.join(usernames)
+
+        asked = t.ASKED[self.language].format(usernames)
+        text = t.ANSWER_LIST.format(self.cut_question, '', '', asked)
+        bot.edit_message_text(text, self.chat_id, self.leader_answer_message_id, parse_mode=ParseMode.HTML,
+                              reply_markup=self.stop_markup)
+
         markup = self.send_question()
 
         if self.is_public:
             asked = t.ASKED[self.group_chat[1]].format(usernames)
             text = t.ANSWER_LIST.format(self.cut_question, '', '', asked)
-            self.group_answer_message_id = bot.send_message(self.group_chat[0], text).message_id
+            self.group_answer_message_id = bot.send_message(self.group_chat[0], text,
+                                                            parse_mode=ParseMode.HTML).message_id
 
             text = t.ASK_LEADER_ANSWER[self.language]
             message_id = self.send_message(text, reply_markup=markup[self.language]).message_id
@@ -1953,30 +1991,6 @@ class AskingGroup(Interaction):
             user_id: [username, language, a.Familiarity(*familiarity)]
             for user_id, username, language, familiarity in asked_records
         }
-
-    def send_answer_list(self) -> str:
-        """
-        This method makes the bot send a message to the leader, that contains information about the students' answers to
-        the question, which students refused to answer and which have yet to respond (initially, all of the students
-        are yet to have responded). Id of the sent message is saved so that its text can be changed later.
-
-        Returns (str): usernames of the students who the question will be sent to, each on a separate line.
-        """
-        usernames = [r[0] for r in self.asked.values()]
-        if self.is_public:
-            usernames.append(self.username)
-        usernames.sort(key=a.str_sort_key)
-        usernames = '\n'.join(usernames)
-
-        asked = t.ASKED[self.language].format(usernames)
-        text = t.ANSWER_LIST.format(self.cut_question, '', '', asked)
-
-        try:
-            bot.edit_message_text(text, self.chat_id, self.leader_answer_message_id, reply_markup=self.stop_markup)
-        except BadRequest:
-            self.leader_answer_message_id = self.send_message(text, reply_markup=self.stop_markup).message_id
-
-        return usernames
 
     def send_question(self) -> tuple[InlineKeyboardMarkup]:
         """
@@ -2075,7 +2089,7 @@ class AskingGroup(Interaction):
 
         text = t.ANSWER_LIST.format(self.cut_question, answered, refused, asked)
         markup = self.stop_markup if chat_id == self.chat_id else None
-        bot.edit_message_text(text, chat_id, answer_message_id, reply_markup=markup)
+        bot.edit_message_text(text, chat_id, answer_message_id, parse_mode=ParseMode.HTML, reply_markup=markup)
 
     def respond(self, command: str, message: Message):
         if not self.asked:  # if the second part of the interaction has not been launched

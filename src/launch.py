@@ -16,7 +16,7 @@ import src.loggers as l
 logging.basicConfig(filename=l.BOT_LOG, filemode='w', format=l.BOT_LOG_FORMAT, datefmt=l.TIME_FORMAT,
                     level=logging.INFO)
 
-# ----------------------------------------------------------------------------------------------- cleaning the database
+# ------------------------------------------------------------------------------------------------ cleaning the database
 
 now = datetime.now()
 if now.month >= THRESHOLD_DATE[0] and now.day >= THRESHOLD_DATE[1]:
@@ -49,7 +49,7 @@ if now.month >= THRESHOLD_DATE[0] and now.day >= THRESHOLD_DATE[1]:
     cursor.close()
     connection.close()
 
-# ------------------------------------------------------------------------------------------------------------ handlers
+# ------------------------------------------------------------------------------------------------------------- handlers
 
 dispatcher = i.updater.dispatcher
 
@@ -58,7 +58,7 @@ dispatcher.add_handler(CallbackQueryHandler(b.callback_query_handler))
 dispatcher.add_handler(MessageHandler(Filters.text, b.text_handler))
 dispatcher.add_handler(PollAnswerHandler(b.poll_answer_handler))
 
-# ------------------------------------------------------------------------------ communication and notification threads
+# ------------------------------------------------------------------------------- communication and notification threads
 
 communication_thread = Thread(target=i.updater.start_polling)
 notification_thread = Thread(target=b.notification)
