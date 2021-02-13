@@ -17,5 +17,5 @@ images/
 log/
 
 # compiled and confidential files
-src/__pycache__/
-src/bot_info.py
+src/bot/__pycache__/
+src/bot/bot_info.py
