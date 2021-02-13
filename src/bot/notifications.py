@@ -6,7 +6,7 @@ from telegram import ParseMode
 
 from interactions import bot, EventAnswering, current
 from auxiliary import str_to_datetime
-from text import WEEKDAYS, TODAY, TOMORROW, DAYS_LEFT
+import text as t
 from config import LANGUAGES, DATABASE
 import log
 
@@ -75,25 +75,22 @@ def inspect_events(events_str: list[str], today: datetime, event_answering: Even
 
     for event_str in events_str:  # for each of the group's events
         event_str, _, event_reminded = event_str.rpartition('|')
-        event = str_to_datetime(event_str)
+        event, event_reminded = str_to_datetime(event_str), event_reminded.split()
+
+        if not event_reminded:  # if no one has agreed to be reminded about the event
+            continue
 
         if event < today:  # if the event has passed
             del events_str[0]
             if event_answering:
                 event_answering.cancel_question(event_str)
-
             continue
 
-        days_left = (event - today).days
         translated_event = tuple(
-            f'{WEEKDAYS[int(event_str[0])][index]} {event_str[2:]}' for index in range(len(LANGUAGES))
+            f'{t.WEEKDAYS[int(event_str[0])][index]} {event_str[2:]}' for index in range(len(LANGUAGES))
         )
-        event_reminded = event_reminded.split()
 
-        if not event_reminded:  # if no one has agreed to be reminded about the event
-            continue
-
-        if days_left not in events:
+        if (days_left := (event - today).days) not in events:
             events[days_left] = [Event(translated_event, event_reminded)]
         else:
             events[days_left].append(Event(translated_event, event_reminded))
@@ -105,27 +102,18 @@ def inspect_events(events_str: list[str], today: datetime, event_answering: Even
 
 def send_reminders(events: dict[int, list[Event]], reminded_records: tuple[tuple[int, int]]):
     for user_id, language in reminded_records:  # for each student that has agreed to be reminded about at least 1 event
-        user_events = {
-            days_left: tuple(
+        # events that the student has agreed to be reminded about by the number of full days left
+        user_events = dict[int, list[str]]()
+        for days_left, days_left_events in events.items():
+            days_left_user_events = tuple(
                 event.translated[language] for event in days_left_events if str(user_id) in event.reminded
             )
-            for days_left, days_left_events in events.items()
-        }  # events that the student has agreed to be reminded about by the number of full days left
 
-        days_left_events = list[str]()
+            # if the student has agreed to be reminded about at least 1 event that is days_left days
+            if days_left_user_events:
+                user_events[days_left] = days_left_user_events
 
-        if 0 in user_events:  # if there are events that are today
-            days_left_events.append(TODAY[language].format('\n'.join(user_events[0])))
-            del user_events[0]
-
-        if 1 in user_events:  # if there are events that are tomorrow
-            days_left_events.append(TOMORROW[language].format('\n'.join(user_events[1])))
-            del user_events[1]
-
-        for days_left, days_left_user_events in user_events.items():
-            days_left_events.append(DAYS_LEFT[language].format(days_left, '\n'.join(user_events[days_left])))
-
-        bot.send_message(user_id, '\n\n'.join(days_left_events), parse_mode=ParseMode.HTML)
+        bot.send_message(user_id, t.report_on_events(user_events, language), parse_mode=ParseMode.HTML)
 
 
 # ---------------------------------------------------------------------------------- notification about e-campus changes

@@ -179,7 +179,7 @@ NO_STUDENTS_FOUND = (
 def report_on_related_chats(num_groupmates: int, num_group_chats: int, language: int) \
         -> tuple[str, Union[None, tuple[tuple[str]]]]:
     """
-    This function generates a text message containing information about how many of the student's groupmates have
+    This function generates a text message that contains information about how many of the student's groupmates have
     registered and how many group chats their group has registered (most groups only have 1). It also determines whether
     the student has made the number of registered students from the group big enough for leader confirmation (LC).
 
@@ -188,9 +188,9 @@ def report_on_related_chats(num_groupmates: int, num_group_chats: int, language:
         num_group_chats (int): number of group chats that the student's group has registered.
         language (int): index of the student's language, according to src.config.LANGUAGES.
 
-    Returns (tuple[str, None or tuple[tuple[str]]]): text message containing information described above, and tuple of
-        strings describing actions to start LC (None if the student has not made the number of registered students from
-        the group big enough for LC).
+    Returns (tuple[str, None or tuple[tuple[str]]]): text message that contains information described above, and tuple
+        of strings describing actions to start LC (None if the student has not made the number of registered students
+        from the group big enough for LC).
     """
     def group_chats(num_group_chats: int, language: int) -> str:
         return GROUP_CHATS_[0][language] if num_group_chats == 1 else GROUP_CHATS_[1][language].format(num_group_chats)
@@ -535,6 +535,33 @@ NO_EVENTS = (
     'NO_EVENTS',
     ''
 )
+
+
+def report_on_events(events: dict[int, list[str]], language: int) -> str:
+    """
+    This function generates a text message that contains information.
+
+    Args:
+        events (dict[int, list[str]]): .
+        language (int): .
+
+    Returns (str): text message that contains information described above.
+    """
+    event_groups = list[str]()
+
+    if 0 in events:
+        event_groups.append(TODAY[language].format('\n'.join(events[0])))
+        del events[0]
+
+    if 1 in events:
+        event_groups.append(TOMORROW[language].format('\n'.join(events[1])))
+        del events[1]
+
+    for days_left, days_left_events in events.items():
+        event_groups.append(DAYS_LEFT[language].format(days_left, '\n'.join(days_left_events)))
+
+    return '\n\n'.join(event_groups)
+
 
 # ----------------------------------------------------------------------------------------------- displaying information
 

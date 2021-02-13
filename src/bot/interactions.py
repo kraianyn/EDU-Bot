@@ -956,20 +956,35 @@ def displaying_events(record: a.ChatRecord, update: Update):
         'SELECT events FROM groups WHERE id = ?',
         (record.group_id,)
     )
-    events = cursor.fetchone()[0]
+    events_str = cursor.fetchone()[0]
     cursor.close()
     connection.close()
 
     try:
-        events = events.split('\n')
+        events_str = events_str.split('\n')
     except AttributeError:  # if there are no upcoming events
-        events = t.NO_EVENTS[record.language]
+        text = t.NO_EVENTS[record.language]
     else:  # if the are upcoming events
-        events = '\n'.join(tuple(
-            f"{t.WEEKDAYS[int(event[0])][record.language]} {event.rpartition('|')[0][2:]}" for event in events
-        ))
+        now = datetime.now()
+        today = datetime(now.year, now.month, now.day, 0, 0)
 
-    update.effective_message.reply_text(events, quote=update.effective_chat.type != Chat.PRIVATE)
+        events = dict[int, list[str]]()
+        for event_str in events_str:
+            event = a.str_to_datetime(event_str)
+
+            # if the event has not passed or has passed not more than an hour ago
+            if event >= now:
+                event_str = f"{t.WEEKDAYS[int(event_str[0])][record.language]} {event_str[2:].rpartition('|')[0]}"
+
+                if (days_left := (event - today).days) not in events:
+                    events[days_left] = [event_str]
+                else:
+                    events[days_left].append(event_str)
+
+        text = t.report_on_events(events, record.language)
+
+    is_not_private = update.effective_chat.type != Chat.PRIVATE
+    update.effective_message.reply_text(text, quote=is_not_private, parse_mode=ParseMode.HTML)
     log.cl.info(log.EVENTS.format(record.id))
 
 
