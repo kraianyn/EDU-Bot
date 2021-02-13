@@ -9,11 +9,11 @@ from telegram.ext import Updater
 from telegram import Update, Chat, Message, InlineKeyboardButton, InlineKeyboardMarkup, CallbackQuery, ParseMode
 from telegram.error import BadRequest
 
-import src.auxiliary as a
-import src.text as t
-from src.bot_info import TOKEN
-import src.config as c
-import src.loggers as l
+import auxiliary as a
+import text as t
+from bot_info import TOKEN
+import config as c
+import log
 
 updater = Updater(TOKEN)
 bot = updater.bot
@@ -30,7 +30,7 @@ class Interaction:
         ONGOING_MESSAGE (tuple[str]): message in case of an attempt to start a different interaction.
         ALREADY_MESSAGE (tuple[str]): message in case of using self.COMMAND during the interaction.
         chat_id (int): id of the chat that the interaction is in.
-        language (int): index of interaction's language, according to src.text.LANGUAGES.
+        language (int): index of interaction's language, according to src.config.LANGUAGES.
         next_action (Callable[[Update], None]): method that makes the bot take the next step of the interaction.
     """
     COMMAND: str
@@ -45,9 +45,10 @@ class Interaction:
     def __init__(self, record: a.ChatRecord = None):
         """
         This method is called when an interaction is started. It adds the interaction to src.interactions.current and if
-        possible, initializes the interaction's attributes: chat_id, language, group_id (id of the group that the chat
-        is related to), is_familiar (whether the user starts the interaction for the first time), familiarity
-        (src.auxiliary.Familiarity, None if the user starts the interaction not for the first time).
+        possible, initializes the interaction's attributes: chat_id, language (its index according to
+        src.config.LANGUAGES), group_id (id of the group that the chat is related to), is_familiar (whether the user
+        starts the interaction for the first time), familiarity (src.auxiliary.Familiarity, None if the user starts the
+        interaction not for the first time).
 
         Args:
             record (src.auxiliary.ChatRecord, optional): record of the user who starts the interaction. If given, the
@@ -61,7 +62,7 @@ class Interaction:
             self.familiarity = None if self.is_familiar else familiarity
 
         current[self.chat_id] = self
-        l.cl.info(l.STARTS.format(self.chat_id, type(self).__name__))
+        log.cl.info(log.STARTS.format(self.chat_id, type(self).__name__))
 
     def send_message(self, *args, **kwargs) -> Message:
         """
@@ -107,7 +108,7 @@ class Interaction:
         """
         text = (self.ALREADY_MESSAGE if command == self.COMMAND else self.ONGOING_MESSAGE)[self.language]
         message.reply_text(text, quote=message.chat.type != Chat.PRIVATE)
-        l.cl.info(l.INTERRUPTS.format(message.from_user.id, command, type(self).__name__))
+        log.cl.info(log.INTERRUPTS.format(message.from_user.id, command, type(self).__name__))
 
     @staticmethod
     def update_familiarity(user_id: int, familiarity: a.Familiarity, **kwargs):
@@ -128,14 +129,14 @@ class Interaction:
         connection.commit()
         cursor.close()
         connection.close()
-        l.cl.info(l.BECOMES_FAMILIAR.format(user_id, tuple(kwargs.keys())[0]))
+        log.cl.info(log.BECOMES_FAMILIAR.format(user_id, tuple(kwargs.keys())[0]))
 
     def terminate(self):
         """
         This method terminates the interaction by deleting the instance in src.interactions.current.
         """
         del current[self.chat_id]
-        l.cl.info(l.ENDS.format(self.chat_id, type(self).__name__))
+        log.cl.info(log.ENDS.format(self.chat_id, type(self).__name__))
 
 
 class Registration(Interaction):
@@ -166,8 +167,8 @@ class Registration(Interaction):
     def ask_city(self, update: Update):
         """
         This method is called when the bot receives an update after the chat is asked their language. If the update is
-        not caused by choosing one (by clicking on one of the provided inline buttons), it is ignored. Otherwise, the
-        chosen language is saved and the chat is asked their city. The options are provided as inline buttons.
+        not caused by choosing one (by clicking on one of the provided inline buttons), it is ignored. Otherwise, id of
+        the chosen language is saved and the chat is asked their city. The options are provided as inline buttons.
 
         Args:
             update (telegram.Update): update received after the chat is asked their language.
@@ -220,7 +221,7 @@ class Registration(Interaction):
             return  # no response
 
         edus = [
-            [InlineKeyboardButton(name, callback_data=edu_id)] for edu_id, name in self.get_edus(city)
+            [InlineKeyboardButton(name, callback_data=edu_id)] for edu_id, name in self.get_EDUs(city)
         ]
         markup = InlineKeyboardMarkup(edus)
 
@@ -228,7 +229,7 @@ class Registration(Interaction):
         self.next_action = self.ask_department
 
     @staticmethod
-    def get_edus(city: str) -> list[tuple[int, str]]:
+    def get_EDUs(city: str) -> list[tuple[int, str]]:
         """
         Returns (list[tuple[int, str]]): EDUs in the given city, sorted by their name. Namely, list of tuples containing
             the EDUs id and full name.
@@ -333,7 +334,7 @@ class Registration(Interaction):
             text = t.TOO_LONG_GROUP_NAME[self.language].format(length - c.MAX_GROUP_NAME_LENGTH)
             self.send_message(text, reply_to_message_id=message_id)
         else:
-            registered_at = datetime.now().strftime(l.TIME_FORMAT)  # time the chat finished the registration
+            registered_at = datetime.now().strftime(log.TIME_FORMAT)  # time the chat finished the registration
             group_name = entered_group_name.upper()
 
             self.determine_group_id(group_name)
@@ -433,7 +434,7 @@ class Registration(Interaction):
         connection.commit()
         cursor.close()
         connection.close()
-        l.cl.info(l.REGISTERS.format(self.chat_id, self.group_id))
+        log.cl.info(log.REGISTERS.format(self.chat_id, self.group_id))
 
     def report_on_related_chats(self, given_group_name: str):
         """
@@ -499,7 +500,7 @@ class Registration(Interaction):
         connection.close()
 
     def respond(self, command: str, message: Message):
-        if self.language:  # if the chat has already provided their language
+        if self.language:  # if the chat has provided their language
             super().respond(command, message)
 
 
@@ -510,7 +511,7 @@ class LeaderConfirmation(Interaction):
     def __init__(self, record: a.ChatRecord, group_chat_record: tuple[int, int]):
         self.chat_id, self.language, self.group_id = record.id, record.language, record.group_id
         current[self.group_id] = self
-        l.cl.info(l.STARTS.format(self.chat_id, type(self).__name__))
+        log.cl.info(log.STARTS.format(self.chat_id, type(self).__name__))
 
         self.username = record.username
         self.group_chat = group_chat_record
@@ -599,12 +600,12 @@ class LeaderConfirmation(Interaction):
             connection.commit()
             cursor.close()
             connection.close()
-            l.cl.info(l.CONFIRMED.format(self.chat_id))
+            log.cl.info(log.CONFIRMED.format(self.chat_id))
 
             return True
 
         else:
-            l.cl.info(l.NOT_CONFIRMED.format(self.chat_id))
+            log.cl.info(log.NOT_CONFIRMED.format(self.chat_id))
 
             for user_id, language in self.late_claimers:
                 bot.send_message(user_id, t.CANDIDATE_NOT_CONFIRMED[language].format(self.username))
@@ -622,7 +623,7 @@ class LeaderConfirmation(Interaction):
         """
         return user_id == self.chat_id
 
-    def add_claimer(self, user_id: int, user_language: int):
+    def add_claimer(self, user_id: int, language: int):
         """
         This method remembers the candidate's groupmate if they attempt to start leader confirmation. If the candidate
         will not be confirmed to be the group's leader, the groupmate will be notified about availability of the
@@ -630,9 +631,9 @@ class LeaderConfirmation(Interaction):
 
         Args:
             user_id (int): id of the groupmate to remember.
-            user_language (int): language of the groupmate to remember, according to src.text.LANGUAGES.
+            language (int): index of the groupmate's language, according to src.config.LANGUAGES.
         """
-        self.late_claimers.append((user_id, user_language))
+        self.late_claimers.append((user_id, language))
 
     def handle_year(self, update: Update):
         """
@@ -709,7 +710,7 @@ class LeaderConfirmation(Interaction):
         connection.commit()
         cursor.close()
         connection.close()
-        l.cl.info(l.ENTERS_EDU_YEAR.format(self.chat_id, current_edu_year, all_edu_years))
+        log.cl.info(log.ENTERS_EDU_YEAR.format(self.chat_id, current_edu_year, all_edu_years))
 
         return graduation_year
 
@@ -738,7 +739,7 @@ def displaying_commands(record: a.ChatRecord, update: Update):
 
     text = t.COMMANDS[record.language].format(kpi_command, non_ordinary_commands, unfamiliar)
     update.effective_message.reply_text(text, quote=update.effective_chat.type != Chat.PRIVATE)
-    l.cl.info(l.COMMANDS.format(record.id))
+    log.cl.info(log.COMMANDS.format(record.id))
 
 
 class AddingAdmin(Interaction):
@@ -769,7 +770,7 @@ class AddingAdmin(Interaction):
         """
         Returns (list[tuple[int, str, int]]): the group's ordinary students, sorted by their usernames or other
             identifiers. Namely, list of tuples containing the student's telegram id, username or other identifier, and
-            language.
+            language (its index according to src.config.LANGUAGES).
         """
         connection = connect(c.DATABASE)
         cursor = connection.cursor()
@@ -819,7 +820,7 @@ class AddingAdmin(Interaction):
         connection.commit()
         cursor.close()
         connection.close()
-        l.cl.info(l.NOW_ADMIN.format(new_admin_id))
+        log.cl.info(log.NOW_ADMIN.format(new_admin_id))
 
         bot.send_message(new_admin_id, t.YOU_NOW_ADMIN[new_admin_language].format(t.ADMIN_COMMANDS[new_admin_language]))
         query.message.edit_text(t.NOW_ADMIN[self.language].format(new_admin_username))
@@ -857,7 +858,8 @@ class RemovingAdmin(Interaction):
     def get_admin_records(self) -> list[tuple[int, str, int]]:
         """
         Returns (list[tuple[int, str, int]]): the group's admins, sorted by their usernames or other identifiers.
-            Namely, list of tuples containing the admin's telegram id, username or other identifier, and language.
+            Namely, list of tuples containing the admin's telegram id, username or other identifier, and language (its
+            index according to src.config.LANGUAGES).
         """
         connection = connect(c.DATABASE)
         cursor = connection.cursor()
@@ -904,7 +906,7 @@ class RemovingAdmin(Interaction):
         connection.commit()
         cursor.close()
         connection.close()
-        l.cl.info(l.NO_MORE_ADMIN.format(self.admin_id))
+        log.cl.info(log.NO_MORE_ADMIN.format(self.admin_id))
 
         msg = (t.ASK_TO_NOTIFY_FORMER if self.is_familiar else t.FT_ASK_TO_NOTIFY_FORMER)
         self.ask_polar(msg[self.language].format(self.admin_username), query)
@@ -933,7 +935,7 @@ class RemovingAdmin(Interaction):
 
         if is_positive:
             bot.send_message(self.admin_id, t.YOU_NO_MORE_ADMIN[self.admin_language])
-            l.cl.info(l.FORMER_NOTIFIED.format(self.admin_id))
+            log.cl.info(log.FORMER_NOTIFIED.format(self.admin_id))
             query.message.edit_text(t.FORMER_ADMIN_NOTIFIED[self.language])
         else:
             query.message.edit_text(t.FORMER_NOT_NOTIFIED[self.language])
@@ -968,7 +970,7 @@ def displaying_events(record: a.ChatRecord, update: Update):
         ))
 
     update.effective_message.reply_text(events, quote=update.effective_chat.type != Chat.PRIVATE)
-    l.cl.info(l.EVENTS.format(record.id))
+    log.cl.info(log.EVENTS.format(record.id))
 
 
 def displaying_info(record: a.ChatRecord, update: Update):
@@ -989,7 +991,7 @@ def displaying_info(record: a.ChatRecord, update: Update):
     connection.close()
 
     update.effective_message.reply_text(info, quote=update.effective_chat.type != Chat.PRIVATE)
-    l.cl.info(l.INFO.format(record.id))
+    log.cl.info(log.INFO.format(record.id))
 
 
 class AddingEvent(Interaction):
@@ -1044,10 +1046,11 @@ class AddingEvent(Interaction):
 
             if self.save_event():  # if the event has not already been added
                 self.notify()  # overwrites reference to this instance with an EventAnswering one
-                l.cl.info(l.ASKED_EVENT.format(self.group_id, self.cut_event))
+                log.cl.info(log.ASKED_EVENT.format(self.group_id, self.cut_event))
             else:  # if the event has already been added
-                l.cl.info(l.ADDS_DUPLICATE.format(self.chat_id, self.cut_event))
+                log.cl.info(log.ADDS_DUPLICATE.format(self.chat_id, self.cut_event))
                 self.send_message(t.ALREADY_ADDED[self.language])
+                self.terminate()
 
         else:  # if the given date is invalid
             self.send_message(text)
@@ -1164,7 +1167,7 @@ class AddingEvent(Interaction):
         connection.commit()
         cursor.close()
         connection.close()
-        l.cl.info(l.ADDS.format(self.chat_id, self.cut_event))
+        log.cl.info(log.ADDS.format(self.chat_id, self.cut_event))
 
         return is_unique
 
@@ -1183,7 +1186,9 @@ class AddingEvent(Interaction):
         event_answering = EventAnswering(self.group_id) if not currently_asked else current[currently_asked[0]]
 
         # the event with the weekday in each language
-        event = tuple(f'{t.WEEKDAYS[self.weekday_index][index]} {self.event[2:]}' for index in range(len(c.LANGUAGES)))
+        translated_event = tuple(
+            f'{t.WEEKDAYS[self.weekday_index][index]} {self.event[2:]}' for index in range(len(c.LANGUAGES))
+        )
 
         answers = tuple(
             [[
@@ -1194,32 +1199,33 @@ class AddingEvent(Interaction):
         )
         markup = tuple(InlineKeyboardMarkup(buttons) for buttons in answers)
 
-        asked = list[tuple[int, int]]()
+        asked = dict[int, tuple[int, int]]()
         for user_id, language, familiarity in student_records:
 
             if user_id not in currently_asked:  # if the student has no unanswered events
                 current[user_id] = event_answering
 
                 msg = t.NEW_EVENT if int(a.Familiarity(*familiarity).event_answer) else t.FT_NEW_EVENT
-                text = msg[language].format(event[language], choice(t.EVENT_QUESTION[language]))
+                text = msg[language].format(translated_event[language], choice(t.EVENT_QUESTION[language]))
 
-                asked.append((user_id, bot.send_message(user_id, text, reply_markup=markup[language]).message_id))
+                asked[user_id] = (bot.send_message(user_id, text, reply_markup=markup[language]).message_id, language)
 
             else:  # if the student has unanswered events
-                text = t.NEW_EVENT[language].format(event[language], '')
+                text = t.NEW_EVENT[language].format(translated_event[language], '')
 
-                asked.append((user_id, bot.send_message(user_id, text).message_id))
+                asked[user_id] = (bot.send_message(user_id, text).message_id, language)
 
         event_answering.add_event(self.event, asked)
 
         for chat_id, language in group_chat_records:
-            bot.send_message(chat_id, t.NEW_EVENT[language].format(event[language], ''))
+            bot.send_message(chat_id, t.NEW_EVENT[language].format(translated_event[language], ''))
 
     def get_related_records(self) -> tuple[list[tuple[int, int, str]], list[tuple[int, int]]]:
         """
         Returns (tuple[list[tuple[int, int, str]], list[tuple[int, int]]]): chats related to the admin's group. Namely,
-            list of student records (tuples containing the student's telegram id, language, and familiarity with the
-            bot's interactions) and list of group-chat records (tuples containing the chat's id and language).
+            list of student records (tuples containing the student's telegram id, language (its index according to
+            src.config.LANGUAGES), and familiarity with the bot's interactions) and list of group-chat records (tuples
+            containing the chat's id and language index).
         """
         connection = connect(c.DATABASE)
         cursor = connection.cursor()
@@ -1245,7 +1251,7 @@ class AddingEvent(Interaction):
 class EventAnswering:
     def __init__(self, group_id: int):
         self.group_id = group_id
-        self.queue = OrderedDict[str, list[tuple[int, int]]]()
+        self.queue = OrderedDict[str, dict[int, tuple[int, int]]]()
 
         self.next_action = self.handle_answer
 
@@ -1271,41 +1277,41 @@ class EventAnswering:
         user_id = update.effective_user.id
         record = a.get_chat_record(user_id)
         language, familiarity = record.language, a.Familiarity(*record.familiarity)
-        event, event_index, user_index = self.determine_event(user_id)
+        event, event_index = self.determine_event(user_id)
         cut_event = a.cut(event)
 
         # if the user is answering for the first time whether they want to be reminded about the event
         if not int(familiarity.event_answer):
             Interaction.update_familiarity(user_id, familiarity, event_answer='1')
 
-        if a.str_to_datetime(event) > datetime.now():  # todo: foresee no more reminders
+        if a.str_to_datetime(event) > datetime.now():
             if is_positive:
                 self.update_event(event, user_id)
-                log_msg, text = l.AGREES, choice(t.EXPECT_NOTIFICATIONS[language])
+                log_msg, text = log.AGREES, choice(t.EXPECT_NOTIFICATIONS[language])
             else:
-                log_msg, text = l.DISAGREES, choice(t.EXPECT_NO_NOTIFICATIONS[language])
+                log_msg, text = log.DISAGREES, choice(t.EXPECT_NO_NOTIFICATIONS[language])
         else:
             if is_positive:
-                log_msg, text = l.AGREES_LATE, t.WOULD_EXPECT_NOTIFICATIONS[language]
+                log_msg, text = log.AGREES_LATE, t.WOULD_EXPECT_NOTIFICATIONS[language]
             else:
-                log_msg, text = l.DISAGREES_LATE, t.WOULD_EXPECT_NO_NOTIFICATIONS[language]
+                log_msg, text = log.DISAGREES_LATE, t.WOULD_EXPECT_NO_NOTIFICATIONS[language]
 
-        l.cl.info(log_msg.format(user_id, cut_event))
+        log.cl.info(log_msg.format(user_id, cut_event))
         event_text = query.message.text.rpartition('\n\n')[0]
         query.message.edit_text(f"{event_text}\n\n{text}")
 
         if event_index == len(self.queue) - 1:  # if the event is the last one in the queue
             del current[user_id]  # the user has answered concerning all the events
         else:  # if the event is not the last one in the queue
-            self.ask_next_event(user_id, event_index, language)
+            self.ask_next_event(user_id, event_index)
 
         if len(self.queue[event]) != 1:  # if the user is not the only one who had not answered about the event
-            del self.queue[event][user_index]
+            del self.queue[event][user_id]
         else:  # if the user is the only one who had not answered about the event
             del self.queue[event]
-            l.cl.info(l.ALL_ANSWERED_EVENT.format(self.group_id, cut_event))
+            log.cl.info(log.ALL_ANSWERED_EVENT.format(self.group_id, cut_event))
 
-    def determine_event(self, user_id: int) -> tuple[str, int, int]:
+    def determine_event(self, user_id: int) -> tuple[str, int]:
         """
         Args:
             user_id (int): id of the group's student who is asked about an event.
@@ -1314,9 +1320,8 @@ class EventAnswering:
             student's index in the list of all students who are (will be) asked about the same event.
         """
         for event_index, (event, asked) in enumerate(self.queue.items()):
-            for asked_user_index, (asked_user_id, message_id) in enumerate(asked):
-                if asked_user_id == user_id:
-                    return event, event_index, asked_user_index
+            if user_id in asked:
+                return event, event_index
 
     def update_event(self, event: str, user_id: int):
         """
@@ -1348,21 +1353,17 @@ class EventAnswering:
         cursor.close()
         connection.close()
 
-    def ask_next_event(self, user_id: int, event_index: int, language: int):
+    def ask_next_event(self, user_id: int, event_index: int):
         """
         This method makes the bot ask the student whether they want to be reminded about the next event in the queue.
 
         Args:
             user_id (int): id of the student that will be asked about the next event.
             event_index (int): queue index of the event that the student has just answered about.
-            language(int): the student's language.
         """
         next_event = tuple(self.queue.keys())[event_index + 1]
 
-        for user in self.queue[next_event]:
-            if user[0] == user_id:
-                message_id = user[1]
-                break
+        message_id, language = self.queue[next_event][user_id]
 
         next_event = f'{t.WEEKDAYS[int(next_event[0])][language]} {next_event[2:]}'
         text = t.NEW_EVENT[language].format(next_event, choice(t.EVENT_QUESTION[language]))
@@ -1375,7 +1376,7 @@ class EventAnswering:
 
         bot.edit_message_text(text, user_id, message_id, reply_markup=markup)
 
-    def add_event(self, event: str, asked: list[tuple[int, int]]):
+    def add_event(self, event: str, asked: dict[int, tuple[int, int]]):
         """
         This method adds an event to the queue.
 
@@ -1389,43 +1390,48 @@ class EventAnswering:
         """
         self.queue[event] = asked
 
-    def has_answered(self, user_id: int, event: str) -> bool:
+    def cancel_question(self, event: str) -> tuple[int]:
         """
-        Args:
-            user_id (int): id of the student whose answer about the event will be checked.
-            event (int): event that the student's answer will be checked about.
-
-        Returns (bool): whether the student has answered about the event.
-        """
-        return user_id not in tuple(user[0] for user in self.queue[event])
-
-    def cancel_question(self, user_id: int, event: str, language: int):
-        """
-        This method makes the bot delete the event from the student's queue. If they are currently asked about it, the
-        student is asked whether they want to be reminded about the next event in the queue.
+        This method makes the bot delete the event from the queue. If there are students who are currently asked about
+        it, they are asked whether they want to be reminded about the next event in the queue.
 
         Args:
-            user_id (int): id of the user whose queue the event will be removed from.
-            event (str): event that will be removed from the student's queue.
-            language (int): index of the student's language, according to src.config.LANGUAGES.
+            event (str): event that will be removed from the queue.
         """
-        for user in self.queue[event]:
-            if user[0] == user_id:
-                self.queue[event].remove(user)
-                bot.delete_message(user_id, user[1])  # deleting the question about the event
-                break
+        if event not in self.queue:
+            return tuple()
 
         event_index = tuple(self.queue.keys()).index(event)
 
-        # if the student is currently asked about the event
-        if not event_index or user_id not in tuple(user[0] for user in tuple(self.queue.values())[event_index - 1]):
-            if event_index != len(self.queue) - 1:  # it the event is not the last one in the queue
-                self.ask_next_event(user_id, event_index, language)
-            else:  # it the event is the last one in the queue
-                del current[user_id]
+        translated_answers = tuple(
+            [[
+                InlineKeyboardButton(t.YES[index], callback_data='y'),
+                InlineKeyboardButton(t.NO[index], callback_data='n')
+            ]]
+            for index in range(len(c.LANGUAGES))
+        )
+        translated_markup = tuple(InlineKeyboardMarkup(answers) for answers in translated_answers)
 
-        if not self.queue[event]:  # if there are no students left who are answered about the event
-            del self.queue[event]
+        for user_id, (message_id, language) in self.queue[event].items():
+            bot.delete_message(user_id, message_id)  # deleting the question about the event
+
+            # if the student is currently asked about the event
+            if not event_index or user_id not in tuple(tuple(self.queue.values())[event_index - 1].keys()):
+
+                if event_index == len(self.queue) - 1:  # if the event is the last one in the queue
+                    del current[user_id]
+
+                else:  # if the event is not the last one in the queue
+                    next_event = tuple(self.queue.keys())[event_index + 1]
+                    message_id = self.queue[next_event][user_id][0]
+
+                    next_event = f'{t.WEEKDAYS[int(next_event[0])][language]} {next_event[2:]}'
+                    text = t.NEW_EVENT[language].format(next_event, choice(t.EVENT_QUESTION[language]))
+                    bot.edit_message_text(text, user_id, message_id, reply_markup=translated_markup[language])
+
+        not_answered = tuple(self.queue[event].keys())
+        del self.queue[event]
+        return not_answered
 
     def respond(self, command: str, message: Message):
         """
@@ -1433,7 +1439,7 @@ class EventAnswering:
 
         Args: see src.interactions.Interaction.respond.__doc__.
         """
-        l.cl.info(l.INTERRUPTS.format(message.from_user.id, command, type(self).__name__))
+        log.cl.info(log.INTERRUPTS.format(message.from_user.id, command, type(self).__name__))
 
         user_id = message.from_user.id
         event_index = self.determine_event(user_id)[1]
@@ -1525,7 +1531,7 @@ class CancelingEvent(Interaction):
         connection.commit()
         cursor.close()
         connection.close()
-        l.cl.info(l.CANCELS.format(self.chat_id, a.cut(event)))
+        log.cl.info(log.CANCELS.format(self.chat_id, a.cut(event)))
 
         # the event with its weekday in each language
         translated_event = tuple(
@@ -1533,7 +1539,7 @@ class CancelingEvent(Interaction):
         )
 
         query.message.edit_text(t.EVENT_CANCELED[self.language].format(translated_event[self.language]))
-        self.notify(translated_event, event)
+        self.notify(event, translated_event)
         self.terminate()
 
     def notify(self, event: str, translated_event: tuple[str]):
@@ -1560,12 +1566,15 @@ class CancelingEvent(Interaction):
         cursor.close()
         connection.close()
 
+        not_answered = tuple()
         for chat_id, language in related_records:
-            if chat_id not in current or not isinstance(current[chat_id], EventAnswering) \
-                    or current[chat_id].has_answered(chat_id, event):  # if the student has answered about the event
+            if chat_id in current and isinstance(current[chat_id], EventAnswering):
+                not_answered = current[chat_id].cancel_question(event)
+                break
+
+        for chat_id, language in related_records:
+            if chat_id not in not_answered:  # if the student has answered about the event
                 bot.send_message(chat_id, t.EVENT_CANCELED[language].format(translated_event[language]))
-            else:  # if the student has not answered about the event
-                current[chat_id].cancel_question(chat_id, event, language)
 
 
 class SavingInfo(Interaction):
@@ -1626,7 +1635,7 @@ class SavingInfo(Interaction):
         connection.commit()
         cursor.close()
         connection.close()
-        l.cl.info(l.SAVES.format(self.chat_id, a.cut(info)))
+        log.cl.info(log.SAVES.format(self.chat_id, a.cut(info)))
 
     def notify(self, info: str):
         """
@@ -1728,7 +1737,7 @@ class DeletingInfo(Interaction):
         cursor.close()
         connection.close()
         cut_info = a.cut(info_piece)
-        l.cl.info(l.DELETES.format(self.chat_id, cut_info))
+        log.cl.info(log.DELETES.format(self.chat_id, cut_info))
 
         query.message.edit_text(t.INFO_DELETED[self.language].format(cut_info))
         self.terminate()
@@ -1767,7 +1776,7 @@ class ClearingInfo(Interaction):
             self.clear_info()
             query.message.edit_text(t.INFO_CLEARED[self.language])
         else:
-            l.cl.info(l.KEEPS.format(self.chat_id))
+            log.cl.info(log.KEEPS.format(self.chat_id))
             query.message.edit_text(t.INFO_KEPT[self.language])
 
         self.terminate()
@@ -1785,7 +1794,7 @@ class ClearingInfo(Interaction):
         connection.commit()
         cursor.close()
         connection.close()
-        l.cl.info(l.CLEARS.format(self.chat_id))
+        log.cl.info(log.CLEARS.format(self.chat_id))
 
 
 class NotifyingGroup(Interaction):
@@ -1818,14 +1827,14 @@ class NotifyingGroup(Interaction):
             bot.send_message(chat_id, t.GROUP_NOTIFICATION[language].format(self.username))
             message.forward(chat_id)
 
-        l.cl.info(l.NOTIFIED.format(self.group_id, a.cut(message.text)))
+        log.cl.info(log.NOTIFIED.format(self.group_id, a.cut(message.text)))
         self.send_message(t.GROUP_NOTIFIED[self.language].format(len(related_records)))
         self.terminate()
 
     def get_related_records(self) -> list[tuple[int, int]]:
         """
         Returns (list[tuple[int, int]]): chats that are related to the admin's group. Namely, list of tuples containing
-            the chat's id and language.
+            the chat's id and language (its index according to src.config.LANGUAGES).
         """
         connection = connect(c.DATABASE)
         cursor = connection.cursor()
@@ -1921,7 +1930,7 @@ class AskingGroup(Interaction):
         except AttributeError:  # if the update is not caused by giving the answer
             return  # no response
 
-        l.cl.info((l.MAKES_PUBLIC if self.is_public else l.MAKES_NON_PUBLIC).format(self.chat_id))
+        log.cl.info((log.MAKES_PUBLIC if self.is_public else log.MAKES_NON_PUBLIC).format(self.chat_id))
         self.launch()
 
     def launch(self):
@@ -1973,8 +1982,8 @@ class AskingGroup(Interaction):
     def get_asked(self) -> dict[int, list[str, int, a.Familiarity]]:
         """
         Returns (dict[int, list[str, int, a.Familiarity]]): the leader's groupmates. Namely, dict with items with the
-            student's id as the key and a list containing their username, language, and familiarity with the bot's
-            interactions, as the value.
+            student's id as the key and a list containing their username, language (its index according to
+            src.config.LANGUAGES), and familiarity with the bot's interactions, as the value.
         """
         connection = connect(c.DATABASE)
         cursor = connection.cursor()
@@ -1997,24 +2006,28 @@ class AskingGroup(Interaction):
         This method makes the bot send the question. Namely, to forward the message that the leader sent the question
         in. An option to refuse to answer by clicking an inline button is also provided.
 
-        Returns(tuple[telegram.InlineKeyboardMarkup]): inline markups with a refuse inline button in each language.
+        Returns(tuple[telegram.InlineKeyboardMarkup]): inline markups with a refuse inline button in each language,
+            according to src.config.LANGUAGES.
         """
-        refuse = tuple(  # refuse inline button in each language
+        translated_refuse = tuple(  # refuse inline button in each language
             [[InlineKeyboardButton(t.REFUSE_TO_ANSWER[index], callback_data='refuse')]]
             for index in range(len(c.LANGUAGES))
         )
-        markup = tuple(InlineKeyboardMarkup(button) for button in refuse)
+        translated_markup = tuple(InlineKeyboardMarkup(refuse) for refuse in translated_refuse)
 
         for user_id, (username, language, familiarity) in self.asked.items():
             current[user_id] = self
             bot.forward_message(user_id, self.chat_id, self.question_message_id)
+
             text = (t.ASK_ANSWER if int(familiarity.answer) else t.FT_ASK_ANSWER)[language]
             info = (t.PUBLIC_ANSWER if self.is_public else t.PRIVATE_ANSWER)[language].format(self.username)
-            message_id = bot.send_message(user_id, text.format(info), reply_markup=markup[language]).message_id
+            markup = translated_markup[language]
+            message_id = bot.send_message(user_id, text.format(info), reply_markup=markup).message_id
+
             self.asked[user_id] = (username, language, familiarity, message_id)
 
-        l.cl.info(l.ASKED.format(self.group_id, self.cut_question))
-        return markup
+        log.cl.info(log.ASKED.format(self.group_id, self.cut_question))
+        return translated_markup
 
     def handle_response(self, update: Update):
         """
@@ -2041,12 +2054,12 @@ class AskingGroup(Interaction):
         if not query:  # if an answer is given
             answer = message.text.replace('\n\n', '\n')
             self.answered.append((username, answer))
-            log_text, msg = l.ANSWERS.format(chat.id, a.cut(answer)), t.ANSWER_SENT
+            log_text, msg = log.ANSWERS.format(chat.id, a.cut(answer)), t.ANSWER_SENT
         else:  # if the student has refused to answer
             self.refused.append(username)
-            log_text, msg = l.REFUSES.format(chat.id), t.REFUSAL_SENT
+            log_text, msg = log.REFUSES.format(chat.id), t.REFUSAL_SENT
 
-        l.cl.info(log_text)
+        log.cl.info(log_text)
         bot.edit_message_text(msg[language], chat.id, message_id)
         del self.asked[chat.id]
 
@@ -2068,7 +2081,7 @@ class AskingGroup(Interaction):
                 bot.send_message(self.group_chat[0], text)
 
             del current[self.group_id]
-            l.cl.info(l.ALL_ANSWERED.format(self.group_id))
+            log.cl.info(log.ALL_ANSWERED.format(self.group_id))
 
         del current[chat.id]
 
@@ -2078,7 +2091,7 @@ class AskingGroup(Interaction):
 
         Args:
             chat_id (int): id of the chat that the answer message is in.
-            language (int): language of the chat that the answer message is in, according to src.text.LANGUAGES.
+            language (int): index of the chat's language, according to src.config.LANGUAGES.
             answer_message_id (int): if of the answer message.
             usernames(tuple[str]): new text for the message, based on the current information about the students'
                 responses (answers, refusals, absence of a response).
@@ -2097,7 +2110,7 @@ class AskingGroup(Interaction):
         else:  # if the second part of the interaction has been launched
             text = self.ONGOING_MESSAGE[self.asked[message.from_user.id][1]]
             message.reply_text(text, quote=message.chat.type != Chat.PRIVATE)
-            l.cl.info(l.INTERRUPTS.format(message.from_user.id, command, type(self).__name__))
+            log.cl.info(log.INTERRUPTS.format(message.from_user.id, command, type(self).__name__))
 
     def terminate(self):
         """
@@ -2117,7 +2130,7 @@ class AskingGroup(Interaction):
             del current[user_id]  # the student is no longer having the interaction
 
         del current[self.group_id]  # the group is no longer having the interaction
-        l.cl.info(l.TERMINATES.format(self.chat_id))
+        log.cl.info(log.TERMINATES.format(self.chat_id))
         self.send_message(t.GROUP_ASKING_TERMINATED[0][self.language])
 
 
@@ -2180,7 +2193,7 @@ class ChangingLeader(Interaction):
 
         Returns (list[tuple[int, str, int]]): candidates for being the new leader, sorted by their usernames or other
             identifiers. Namely, list of tuples containing the candidate's telegram id, username or other identifier,
-            and language.
+            and language (its index according to src.config.LANGUAGES).
         """
         connection = connect(c.DATABASE)
         cursor = connection.cursor()
@@ -2244,7 +2257,7 @@ class ChangingLeader(Interaction):
         connection.commit()
         cursor.close()
         connection.close()
-        l.cl.info(l.NOW_LEADER.format(new_leader_id))
+        log.cl.info(log.NOW_LEADER.format(new_leader_id))
 
         new_commands = '' if self.to_admin else t.ADMIN_COMMANDS[new_leader_language]
         new_commands += t.LEADER_COMMANDS[new_leader_language]
@@ -2271,7 +2284,7 @@ class SendingFeedback(Interaction):
         Args:
             update: (telegram.Update): update received after the user is asked a feedback message.
         """
-        now, new_feedback = datetime.now().strftime(l.TIME_FORMAT), update.effective_message.text
+        now, new_feedback = datetime.now().strftime(log.TIME_FORMAT), update.effective_message.text
 
         connection = connect(c.DATABASE)
         cursor = connection.cursor()
@@ -2293,7 +2306,7 @@ class SendingFeedback(Interaction):
         connection.commit()
         cursor.close()
         connection.close
-        l.cl.info(l.SENDS_FEEDBACK.format(self.chat_id, a.cut(new_feedback)))
+        log.cl.info(log.SENDS_FEEDBACK.format(self.chat_id, a.cut(new_feedback)))
 
         self.send_message(t.FEEDBACK_SENT[self.language])
         self.terminate()
@@ -2333,7 +2346,7 @@ class DeletingData(Interaction):
             self.delete_record()
             query.message.edit_text(t.DATA_DELETED[self.language])
         else:
-            l.cl.info(l.STAYS.format(self.chat_id))
+            log.cl.info(log.STAYS.format(self.chat_id))
             query.message.edit_text(t.DATA_KEPT[self.language])
 
         self.terminate()
@@ -2365,9 +2378,9 @@ class DeletingData(Interaction):
         connection.commit()
         cursor.close()
         connection.close()
-        l.cl.info(l.LEAVES.format(self.chat_id, self.group_id))
+        log.cl.info(log.LEAVES.format(self.chat_id, self.group_id))
         if self.is_last:
-            l.cl.info(l.LEAVES.format(self.group_id))
+            log.cl.info(log.LEAVES.format(self.group_id))
         else:
             a.update_group_chat_language(self.group_id)
 

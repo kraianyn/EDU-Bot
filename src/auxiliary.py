@@ -3,8 +3,8 @@ from typing import Union
 from collections import namedtuple
 from sqlite3 import connect
 
-from src.config import LANGUAGES, DATABASE
-import src.loggers as l
+from config import LANGUAGES, DATABASE
+import log
 
 ChatRecord = namedtuple(
     'ChatRecord',
@@ -87,7 +87,7 @@ def update_group_chat_language(group_id: int):
     connection.commit()
     cursor.close()
     connection.close()
-    l.cl.info(l.GROUP_LANGUAGE_UPDATED.format(group_id, LANGUAGES[common_language], spoken_by))
+    log.cl.info(log.GROUP_LANGUAGE_UPDATED.format(group_id, LANGUAGES[common_language], spoken_by))
 
 
 def str_to_datetime(event: str) -> datetime:

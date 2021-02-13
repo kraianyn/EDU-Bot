@@ -631,7 +631,7 @@ INVALID_MINUTE = (
 )
 ALREADY_ADDED = (
     '',
-    "Someone's already added this event, I swear it's not me",
+    "Actually, someone has already added this event and I swear it's not me",
     ''
 )
 

@@ -4,12 +4,12 @@ from sqlite3 import connect
 
 from telegram import Update, Chat, Message
 
-import src.interactions as i
-import src.auxiliary as a
-import src.text as t
-from src.bot_info import USERNAME
-import src.config as c
-import src.loggers as l
+import interactions as i
+from auxiliary import ChatRecord, get_chat_record
+import text as t
+from bot_info import USERNAME
+import config as c
+import log as l
 
 
 def registration(chat: Chat, is_private: bool, message: Message):
@@ -23,7 +23,7 @@ def registration(chat: Chat, is_private: bool, message: Message):
         is_private (bool): whether the chat is private.
         message (telegram.Message): message that the command is sent in.
     """
-    if not (record := a.get_chat_record(chat.id)):  # if the chat is not already registered
+    if not (record := get_chat_record(chat.id)):  # if the chat is not already registered
         if chat.id not in i.current:  # if the chat is not already registering
             i.Registration(chat.id, chat.type)
         else:  # if the chat is already registering
@@ -33,7 +33,7 @@ def registration(chat: Chat, is_private: bool, message: Message):
         l.cl.info(l.START_BEING_REGISTERED.format(chat.id))
 
 
-def leader_confirmation(record: a.ChatRecord, update: Update):
+def leader_confirmation(record: ChatRecord, update: Update):
     """
     This function is responsible for deciding whether src.interactions.LeaderConfirmation interaction makes sense to be
     started. If it does, an attempt to start the interaction is made by calling src.managers.attempt_interaction.
@@ -108,7 +108,7 @@ def leader_confirmation(record: a.ChatRecord, update: Update):
     connection.close()
 
 
-def adding_admin(record: a.ChatRecord, update: Update):
+def adding_admin(record: ChatRecord, update: Update):
     """
     This function is responsible for deciding whether src.interactions.AddingAdmin interaction makes sense to be
     started, which is the case if adding an will not exceed the maximum ratio of admins to all students in the group,
@@ -149,7 +149,7 @@ def adding_admin(record: a.ChatRecord, update: Update):
         l.cl.info(l.TRUST_ALONE.format(record.id, record.group_id))
 
 
-def removing_admin(record: a.ChatRecord, update: Update):
+def removing_admin(record: ChatRecord, update: Update):
     """
     This function is responsible for deciding whether src.interactions.RemovingAdmin interaction makes sense to be
     started, which is the case if there are admins in the group. If there are, an attempt to start the interaction is
@@ -178,11 +178,11 @@ def removing_admin(record: a.ChatRecord, update: Update):
         l.cl.info(l.DISTRUST_WITHOUT_ADMINS.format(record.id, record.group_id))
 
 
-def connecting_ecampus(record: a.ChatRecord, update: Update):
+def connecting_ecampus(record: ChatRecord, update: Update):
     pass
 
 
-def adding_event(record: a.ChatRecord, update: Update):
+def adding_event(record: ChatRecord, update: Update):
     """
     This function is responsible for making an attempt to start src.interactions.AddingEvent interaction by calling
     src.managers.attempt_interaction.
@@ -195,7 +195,7 @@ def adding_event(record: a.ChatRecord, update: Update):
     attempt_interaction(COMMANDS[i.AddingEvent.COMMAND], record, chat, is_private, update.effective_message)
 
 
-def canceling_event(record: a.ChatRecord, update: Update):
+def canceling_event(record: ChatRecord, update: Update):
     """
     This function is responsible for deciding whether src.interactions.CancelingEvent makes sense to be started, which
     is the case if the group has upcoming events. If it does, an attempt to start the interaction is made by calling
@@ -224,7 +224,7 @@ def canceling_event(record: a.ChatRecord, update: Update):
         l.cl.info(l.CANCEL_WITHOUT_EVENTS.format(record.id))
 
 
-def saving_info(record: a.ChatRecord, update: Update):
+def saving_info(record: ChatRecord, update: Update):
     """
     This function is responsible for making an attempt to start src.interactions.SavingInfo interaction by calling
     src.managers.attempt_interaction.
@@ -237,7 +237,7 @@ def saving_info(record: a.ChatRecord, update: Update):
     attempt_interaction(COMMANDS[i.SavingInfo.COMMAND], record, chat, is_private, update.effective_message)
 
 
-def deleting_info(record: a.ChatRecord, update: Update):
+def deleting_info(record: ChatRecord, update: Update):
     """
     This function is responsible for deciding whether src.interactions.DeletingInfo and src.interactions.ClearingInfo
     interactions make sense to be started, which is the case if the group's saved information is not empty. If it is
@@ -272,7 +272,7 @@ def deleting_info(record: a.ChatRecord, update: Update):
         l.cl.info(l.DELETE_WITHOUT_INFO.format(record.id, command))
 
 
-def leader_involving_group(record: a.ChatRecord, update: Update):
+def leader_involving_group(record: ChatRecord, update: Update):
     """
     This function is responsible for deciding whether src.interactions.ChangingLeader, src.interactions.NotifyingGroup,
     and src.interactions.AskingGroup interactions make sense to be started. If they do, an attempt to start the
@@ -314,7 +314,7 @@ def leader_involving_group(record: a.ChatRecord, update: Update):
         message.reply_text(msg[record.language], quote=not is_private)
 
 
-def sending_feedback(record: a.ChatRecord, update: Update):
+def sending_feedback(record: ChatRecord, update: Update):
     chat, message = update.effective_chat, update.effective_message
     is_private = chat.type == Chat.PRIVATE
 
@@ -327,7 +327,7 @@ def sending_feedback(record: a.ChatRecord, update: Update):
         message.reply_text(t.FEEDBACK_CONDITION[record.language], quote=not is_private)
 
 
-def deleting_data(record: a.ChatRecord, update: Update):
+def deleting_data(record: ChatRecord, update: Update):
     """
     This function is responsible for determining whether src.interactions.DeletingData interaction makes sense to be
     started, which is the case if the chat is private. If it is, an attempt to start the interaction is made by calling
@@ -360,7 +360,8 @@ def deleting_data(record: a.ChatRecord, update: Update):
             chat.send_message(t.RESIGN_FIRST[record.language])
 
     else:  # if the chat is not private
-        chat.send_message(t.DELETING_DATA_IN_GROUPS[record.language], reply_to_message_id=update.effective_message.message_id)
+        text = t.DELETING_DATA_IN_GROUPS[record.language]
+        chat.send_message(text, reply_to_message_id=update.effective_message.message_id)
         l.cl.info(l.LEAVE_NOT_PRIVATELY.format(record.id, chat.id))
 
 
@@ -387,7 +388,7 @@ COMMANDS: dict[str, Command] = {
 }
 
 
-def attempt_interaction(command: Command, record: a.ChatRecord, chat: Chat, is_private: bool, message: Message,
+def attempt_interaction(command: Command, record: ChatRecord, chat: Chat, is_private: bool, message: Message,
                         *args):
     """
     This function is called when an interaction makes sense to be started. It is responsible for deciding whether it
