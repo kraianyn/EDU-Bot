@@ -539,11 +539,11 @@ NO_EVENTS = (
 
 def report_on_events(events: dict[int, list[str]], language: int) -> str:
     """
-    This function generates a text message that contains information.
+    This function generates a text message that groups the upcoming events by number of days left.
 
     Args:
-        events (dict[int, list[str]]): .
-        language (int): .
+        events (dict[int, list[str]]): events by number of days left.
+        language (int): index that the message will be in, according to src.config.LANGUAGES.
 
     Returns (str): text message that contains information described above.
     """
@@ -670,9 +670,9 @@ FT_NEW_EVENT = (
     ''
 )
 NEW_EVENT = (
-    'Нова подія:\n\n{}\n\n{}',
-    'New event:\n\n{}\n\n{}',
-    ''
+    '<b>Нова подія:</b>\n\n{}\n\n{}',
+    '<b>New event:</b>\n\n{}\n\n{}',
+    '<b>Новое событие:</b>\n\n{}\n\n{}'
 )
 EVENT_QUESTION = (
     ('Чи нагадувати мені про неї?', 'Мені варто нагадувати про неї?'),
@@ -734,7 +734,7 @@ ASK_EVENT = (
 )
 EVENT_CANCELED = (
     '',
-    'Canceled:\n\n{}',
+    '<b>Canceled:</b>\n\n{}',
     ''
 )
 
@@ -954,7 +954,7 @@ ASK_TO_PUBLISH = (
 )
 
 ANSWER_LIST = '<b>"{}"</b>{}{}{}'
-ANSWERED = (
+ANSWERS = (
     '',
     '\n\n<b>Answers:</b>\n\n{}',
     ''

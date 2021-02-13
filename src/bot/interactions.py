@@ -1233,7 +1233,8 @@ class AddingEvent(Interaction):
         event_answering.add_event(self.event, asked)
 
         for chat_id, language in group_chat_records:
-            bot.send_message(chat_id, t.NEW_EVENT[language].format(translated_event[language], ''))
+            text = t.NEW_EVENT[language].format(translated_event[language], '')
+            bot.send_message(chat_id, text, parse_mode=ParseMode.HTML)
 
     def get_related_records(self) -> tuple[list[tuple[int, int, str]], list[tuple[int, int]]]:
         """
@@ -1484,7 +1485,7 @@ class CancelingEvent(Interaction):
         """
         events = [  # the group's upcoming events with their weekdays in the admin's language
             [InlineKeyboardButton(f"{t.WEEKDAYS[int(event[0])][self.language]} {event[2:]}", callback_data=str(index))]
-            for index, event in enumerate(self.events)
+            for index, event in enumerate(self.events) if a.str_to_datetime(event) >= datetime.now()
         ]
         markup = InlineKeyboardMarkup(events)
 
@@ -1589,7 +1590,8 @@ class CancelingEvent(Interaction):
 
         for chat_id, language in related_records:
             if chat_id not in not_answered:  # if the student has answered about the event
-                bot.send_message(chat_id, t.EVENT_CANCELED[language].format(translated_event[language]))
+                text = t.EVENT_CANCELED[language].format(translated_event[language])
+                bot.send_message(chat_id, text, parse_mode=ParseMode.HTML)
 
 
 class SavingInfo(Interaction):
@@ -2111,7 +2113,7 @@ class AskingGroup(Interaction):
             usernames(tuple[str]): new text for the message, based on the current information about the students'
                 responses (answers, refusals, absence of a response).
         """
-        answered = t.ANSWERED[language].format(usernames[0]) if usernames[0] else ''
+        answered = t.ANSWERS[language].format(usernames[0]) if usernames[0] else ''
         refused = t.REFUSED[language].format(usernames[1]) if usernames[1] else ''
         asked = t.ASKED[language].format(usernames[2]) if usernames[2] else ''
 
@@ -2400,4 +2402,4 @@ class DeletingData(Interaction):
             a.update_group_chat_language(self.group_id)
 
 
-current: dict[int, Union[Interaction, EventAnswering]] = dict()
+current = dict[int, Union[Interaction, EventAnswering]]()

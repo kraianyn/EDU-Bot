@@ -11,7 +11,7 @@ INITIAL_ROLE, INITIAL_FAMILIARITY = ORDINARY_ROLE, '000000000000000'
 KPI_ID = 100
 
 THRESHOLD_DATE = (8, 31)  # August 31, the last day before the next EDU year starts
-NOTIFICATION_TIME = (7, 30)  # 07:30 AM, when notifications are sent
+NOTIFICATION_TIME = (16, 26)  # 07:30 AM, when notifications are sent
 ECAMPUS_URL = 'https://ecampus.kpi.ua/login'
 
 EDU_YEAR_PATTERN = compile(r'(\d)+.+?(\d)+')

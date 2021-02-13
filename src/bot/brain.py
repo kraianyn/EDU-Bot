@@ -17,7 +17,7 @@ from log import cl, UNAVAILABLE_COMMAND
 
 def command_handler(update: Update, _):
     """
-    This function is the callback for the CommandHandler of src.launch.DISPATCHER. It is called when the bot receives a
+    This function is the callback for the CommandHandler of src.launch.dispatcher. It is called when the bot receives a
     command and is responsible for starting an interaction (instantiating src.interactions.Interaction). It also makes
     the bot properly respond (or not respond) if the command is used inappropriately.
 
@@ -60,7 +60,7 @@ def command_handler(update: Update, _):
 
 def callback_query_handler(update: Update, _):
     """
-    This function is the callback for the CallbackQueryHandler of src.launch.DISPATCHER. It is called when an inline
+    This function is the callback for the CallbackQueryHandler of src.launch.dispatcher. It is called when an inline
     button sent by the bot is clicked. It considers the chosen option and may make the bot take next action of the
     interaction.
 
@@ -80,7 +80,7 @@ def callback_query_handler(update: Update, _):
 
 def text_handler(update: Update, _):
     """
-    This function is the callback for the MessageHandler of src.launch.DISPATCHER. It is called when the bot receives a
+    This function is the callback for the MessageHandler of src.launch.dispatcher. It is called when the bot receives a
     text message. It considers the message and may make the bot take the next action of the interaction.
 
     Args:
@@ -93,7 +93,7 @@ def text_handler(update: Update, _):
 
 def poll_answer_handler(update: Update, _):
     """
-    This function is the callback for the PollAnswerHandler of src.launch.DISPATCHER. It is called when a poll answer is
+    This function is the callback for the PollAnswerHandler of src.launch.dispatcher. It is called when a poll answer is
     given. It considers the answer and may make the bot take next action of the interaction.
 
     Args:
@@ -107,6 +107,15 @@ def poll_answer_handler(update: Update, _):
 # --------------------------------------------------------------------------------------------------------- notification
 
 def notification():
+    now = datetime.now()
+    notification_time_today = datetime(now.year, now.month, now.day, *NOTIFICATION_TIME)
+
+    try:
+        sleep((notification_time_today - now).total_seconds())
+    except ValueError:
+        notification_time_tomorrow = notification_time_today + timedelta(days=1)
+        sleep((notification_time_tomorrow - now).total_seconds())
+
     while True:
         remind_about_events()
         check_ecampus_updates()
