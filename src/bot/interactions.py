@@ -269,7 +269,7 @@ class Registration(Interaction):
         departments = self.get_departments()
         departments = [
             [InlineKeyboardButton(name, callback_data=str(department_id)) for department_id, name in row]
-            for row in [departments[i:i + 4] for i in range(0, len(departments), 4)]
+            for row in tuple(departments[i:i + 4] for i in range(0, len(departments), 4))
         ]
         markup = InlineKeyboardMarkup(departments)
 
@@ -984,7 +984,7 @@ def displaying_events(record: a.ChatRecord, update: Update):
         text = t.report_on_events(events, record.language)
 
     is_not_private = update.effective_chat.type != Chat.PRIVATE
-    update.effective_message.reply_text(text, quote=is_not_private, parse_mode=ParseMode.HTML)
+    update.effective_message.reply_text(text, ParseMode.HTML, quote=is_not_private)
     log.cl.info(log.EVENTS.format(record.id))
 
 
@@ -1223,7 +1223,8 @@ class AddingEvent(Interaction):
                 msg = t.NEW_EVENT if int(a.Familiarity(*familiarity).event_answer) else t.FT_NEW_EVENT
                 text = msg[language].format(translated_event[language], choice(t.EVENT_QUESTION[language]))
 
-                asked[user_id] = (bot.send_message(user_id, text, reply_markup=markup[language]).message_id, language)
+                message_id = bot.send_message(user_id, text, ParseMode.HTML, reply_markup=markup[language]).message_id
+                asked[user_id] = (message_id, language)
 
             else:  # if the student has unanswered events
                 text = t.NEW_EVENT[language].format(translated_event[language], '')
@@ -1234,7 +1235,7 @@ class AddingEvent(Interaction):
 
         for chat_id, language in group_chat_records:
             text = t.NEW_EVENT[language].format(translated_event[language], '')
-            bot.send_message(chat_id, text, parse_mode=ParseMode.HTML)
+            bot.send_message(chat_id, text, ParseMode.HTML)
 
     def get_related_records(self) -> tuple[list[tuple[int, int, str]], list[tuple[int, int]]]:
         """
@@ -1591,7 +1592,7 @@ class CancelingEvent(Interaction):
         for chat_id, language in related_records:
             if chat_id not in not_answered:  # if the student has answered about the event
                 text = t.EVENT_CANCELED[language].format(translated_event[language])
-                bot.send_message(chat_id, text, parse_mode=ParseMode.HTML)
+                bot.send_message(chat_id, text, ParseMode.HTML)
 
 
 class SavingInfo(Interaction):
@@ -1983,8 +1984,7 @@ class AskingGroup(Interaction):
         if self.is_public:
             asked = t.ASKED[self.group_chat[1]].format(usernames)
             text = t.ANSWER_LIST.format(self.cut_question, '', '', asked)
-            self.group_answer_message_id = bot.send_message(self.group_chat[0], text,
-                                                            parse_mode=ParseMode.HTML).message_id
+            self.group_answer_message_id = bot.send_message(self.group_chat[0], text, ParseMode.HTML).message_id
 
             text = t.ASK_LEADER_ANSWER[self.language]
             message_id = self.send_message(text, reply_markup=markup[self.language]).message_id

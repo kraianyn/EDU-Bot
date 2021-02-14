@@ -13,21 +13,6 @@ WEEKDAYS = (
     ('Сб', 'Sat', 'Сб'),
     ('Нд', 'Sun', 'Вс')
 )
-TODAY = (
-    '',
-    '<b>Today:</b>\n\n{}',
-    ''
-)
-TOMORROW = (
-    '',
-    '<b>Tomorrow:</b>\n\n{}',
-    ''
-)
-DAYS_LEFT = (
-    '',
-    '<b>In {} days:</b>\n\n{}',
-    ''
-)
 PRIVATE_INTERACTION = (
     '',
     'PRIVATE_INTERACTION',
@@ -39,6 +24,46 @@ REGISTRATION_NEEDED = (
     'REGISTRATION_NEEDED',
     ''
 )
+
+# ------------------------------------------------------------------------------------------------ E-Campus notification
+
+UPDATES = (
+    '<b>Новини з кампусу:</b>\n\n{}\n\n<b>Поточні бали:</b>\n\n{}',
+    '<b>Update from E-Campus:</b>\n\n{}\n\n<b>Current points:</b>\n\n{}',
+    '<b>Новости из кампуса:</b>\n\n{}\n\n<b>Current points:</b>\n\n{}'
+)
+SUBJECTS_ADDED = (
+    'Нові предмети: {}',
+    'New subjects:  {}',
+    'Новые предметы: {}'
+)
+NO_CHANGES = (
+    'У <b>кампусі</b> поки без змін',
+    'There are no changes in <b>E-Campus</b> yet',
+    'В <b>кампусе</b> пока без изменений'
+)
+ECAMPUS_DOWN = (
+    'Нажаль, не можу перевірити, чи є в <b>кампусі</b> зміни. Схоже, їх сервери впали(',
+    "Unfortunately, I cannot check your <b>E-Campus</b> account for updates. It looks like their servers are down(",
+    'К сожалению, не могу проверить, есть ли в <b>кампусе</b> изменения. Похоже, их серверы упали('
+)
+
+
+def report_on_updates(subjects: list[str], points: list[float], changes: list[float], new: list[str],
+                      language: int) -> str:
+    if any(changes) or new:
+        changes_str = [f'{s}:  {c:+n}' for s, c in zip(subjects, changes) if c]
+        if new:
+            changes_str.append(SUBJECTS_ADDED[language].format(', '.join(new)))
+        changes_str = '\n'.join(changes_str)
+
+        points_str = '\n'.join(tuple(f'{s}:  {p}' for s, p in zip(subjects + new, points)))
+
+        return UPDATES[language].format(changes_str, points_str)
+
+    else:
+        return NO_CHANGES[language]
+
 
 # --------------------------------------------------------------------------------------------------------- registration
 
@@ -530,6 +555,21 @@ ALREADY_REMOVING_ADMIN = (
 
 # ---------------------------------------------------------------------------------------------------- displaying events
 
+TODAY = (
+    '',
+    '<b>Today:</b>\n\n{}',
+    ''
+)
+TOMORROW = (
+    '',
+    '<b>Tomorrow:</b>\n\n{}',
+    ''
+)
+DAYS_LEFT = (
+    '',
+    '<b>In {} days:</b>\n\n{}',
+    ''
+)
 NO_EVENTS = (
     '',
     'NO_EVENTS',
@@ -571,7 +611,7 @@ NO_INFO = (
     ''
 )
 
-# ---------------------------------------------------------------------------------------------- adding event (creating)
+# --------------------------------------------------------------------------------------------------------- adding event
 
 FT_ASK_NEW_EVENT = (
     '',
@@ -594,7 +634,7 @@ ASK_DATE = (
     ''
 )
 
-# --------------------------------------------------------------------------------- adding event (creating) (exceptions)
+# -------------------------------------------------------------------------------------------- adding event (exceptions)
 
 UNAVAILABLE_ADDING_EVENT = (
     '',

@@ -13,6 +13,9 @@ load_EDUs.py
 
 images/
 
+# Chrome driver for selenium
+res/
+
 # logs
 log/
 
