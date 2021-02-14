@@ -22,6 +22,7 @@ import log
 # ----------------------------------------------------------------------------------------------- reminding about events
 
 Event = namedtuple('Event', ('translated', 'reminded'))
+EventsDict = dict[int, list[Event]]
 
 
 def remind_about_events():
@@ -54,7 +55,7 @@ def remind_about_events():
 
         events, reminded = inspect_events(events_str, today, event_answering)
 
-        reminded_records = tuple(r for r in student_records if str(r[0]) in reminded)
+        reminded_records = [r for r in student_records if str(r[0]) in reminded]
         send_reminders(events, reminded_records)
 
         if events_str:  # if there are events that have not passed
@@ -69,7 +70,7 @@ def remind_about_events():
             )
         connection.commit()
 
-        num_events = sum(tuple(len(days_left_events) for days_left_events in events.values()))
+        num_events = sum([len(days_left_events) for days_left_events in events.values()])
         log.nl.info(log.GROUP_REMINDED.format(len(reminded_records), group_id, num_events))
 
     cursor.close()
@@ -80,7 +81,8 @@ def remind_about_events():
 
 def inspect_events(events_str: list[str], today: datetime, event_answering: EventAnswering) \
         -> tuple[dict[int, list[Event]], set[str]]:
-    events, reminded = dict[int, list[Event]](), set[str]()
+    events: EventsDict = {}
+    reminded = set[str]()
 
     for event_str in events_str:  # for each of the group's events
         event_str, _, event_reminded = event_str.rpartition('|')
@@ -95,9 +97,9 @@ def inspect_events(events_str: list[str], today: datetime, event_answering: Even
                 event_answering.cancel_question(event_str)
             continue
 
-        translated_event = tuple(
+        translated_event = [
             f'{t.WEEKDAYS[int(event_str[0])][index]} {event_str[2:]}' for index in range(len(c.LANGUAGES))
-        )
+        ]
 
         if (days_left := (event - today).days) not in events:
             events[days_left] = [Event(translated_event, event_reminded)]
@@ -109,14 +111,14 @@ def inspect_events(events_str: list[str], today: datetime, event_answering: Even
     return events, reminded
 
 
-def send_reminders(events: dict[int, list[Event]], reminded_records: tuple[tuple[int, int]]):
+def send_reminders(events: EventsDict, reminded_records: tuple[tuple[int, int]]):
     for user_id, language in reminded_records:  # for each student that has agreed to be reminded about at least 1 event
         # events that the student has agreed to be reminded about by the number of full days left
-        user_events = dict[int, list[str]]()
+        user_events: dict[int, list[str]] = {}
         for days_left, days_left_events in events.items():
-            days_left_user_events = tuple(
+            days_left_user_events = [
                 event.translated[language] for event in days_left_events if str(user_id) in event.reminded
-            )
+            ]
 
             # if the student has agreed to be reminded about at least 1 event that is days_left days
             if days_left_user_events:
@@ -148,7 +150,7 @@ def check_ecampus_updates():
     ecampus_records: list[ECampusRecord] = cursor.fetchall()
 
     range_threads = range(c.ECAMPUS_THREADS)
-    groups = [list[ECampusRecord]() for _ in range_threads]
+    groups = [[] for _ in range_threads]
     for i in cycle(range_threads):
         try:
             groups[i].append(ecampus_records.pop(0))
@@ -157,7 +159,7 @@ def check_ecampus_updates():
 
     updates = ECampusUpdatesDict()
 
-    group_threads = list[Thread]()
+    group_threads: list[Thread] = []
     for group in filter(None, groups):
         thread = Thread(target=get_group_updates, args=(group, options, updates))
         group_threads.append(thread)
@@ -167,7 +169,7 @@ def check_ecampus_updates():
         thread.join()
 
     for user_id, (language, subjects, points, changes, new) in updates.items():
-        updated_points = '\n'.join(tuple(f'{s} {p}' for s, p in zip(subjects + new, points)))
+        updated_points = '\n'.join([f'{s} {p}' for s, p in zip(subjects + new, points)])
         cursor.execute(  # updating the student's points
             'UPDATE ecampus SET points = ? WHERE id = ?',
             (updated_points, user_id)
@@ -183,9 +185,10 @@ def check_ecampus_updates():
     log.nl.info(log.ECAMPUS_NOTIFICATION_FINISHES)
 
 
-def get_group_updates(group: tuple[ECampusRecord], options: tuple[int, int], updates: ECampusUpdatesDict):
+def get_group_updates(group: list[ECampusRecord], options: tuple[int, int], updates: ECampusUpdatesDict):
     for user_id, language, login, password, points_str in group:
-        subjects, points = list[str](), list[str]()
+        subjects: list[str] = []
+        points: list[str] = []
 
         try:
             subjects_points = points_str.split('\n')
@@ -204,7 +207,7 @@ def get_group_updates(group: tuple[ECampusRecord], options: tuple[int, int], upd
 
 
 def check_account_updates(user_login: str, user_password: str, options: tuple[int, int],
-                          current_points: tuple[str]) -> tuple[list[str], list[float], list[str]]:
+                          current_points: list[str]) -> tuple[list[str], list[float], list[str]]:
     """
     Args:
         user_login (str): login of the student's account.
@@ -246,7 +249,7 @@ def check_account_updates(user_login: str, user_password: str, options: tuple[in
             break  # all relevant subjects have been opened in a new tab
 
     range_subjects = range(num_subjects)
-    points, changes, new = list[str](), list[float](), list[str]()
+    points, changes, new = [], [], []
 
     for index in range_subjects:
         driver.close()  # closing the current tab

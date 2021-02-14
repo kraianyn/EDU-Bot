@@ -17,9 +17,9 @@ from log import cl, UNAVAILABLE_COMMAND
 
 def command_handler(update: Update, _):
     """
-    This function is the callback for the CommandHandler of src.launch.dispatcher. It is called when the bot receives a
-    command and is responsible for starting an interaction (instantiating src.interactions.Interaction). It also makes
-    the bot properly respond (or not respond) if the command is used inappropriately.
+    This function is the callback for the CommandHandler of src.bot.launch.dispatcher. It is called when the bot
+    receives a command and is responsible for starting an interaction (instantiating src.bot.interactions.Interaction).
+    It also makes the bot properly respond (or not respond) if the command is used inappropriately.
 
     Args:
         update (telegram.Update): update received after a command is received.
@@ -60,7 +60,7 @@ def command_handler(update: Update, _):
 
 def callback_query_handler(update: Update, _):
     """
-    This function is the callback for the CallbackQueryHandler of src.launch.dispatcher. It is called when an inline
+    This function is the callback for the CallbackQueryHandler of src.bot.launch.dispatcher. It is called when an inline
     button sent by the bot is clicked. It considers the chosen option and may make the bot take next action of the
     interaction.
 
@@ -80,8 +80,8 @@ def callback_query_handler(update: Update, _):
 
 def text_handler(update: Update, _):
     """
-    This function is the callback for the MessageHandler of src.launch.dispatcher. It is called when the bot receives a
-    text message. It considers the message and may make the bot take the next action of the interaction.
+    This function is the callback for the MessageHandler of src.bot.launch.dispatcher. It is called when the bot
+    receives a text message. It considers the message and may make the bot take the next action of the interaction.
 
     Args:
         update (telegram.Update): update received after the text message is received.
@@ -93,8 +93,8 @@ def text_handler(update: Update, _):
 
 def poll_answer_handler(update: Update, _):
     """
-    This function is the callback for the PollAnswerHandler of src.launch.dispatcher. It is called when a poll answer is
-    given. It considers the answer and may make the bot take next action of the interaction.
+    This function is the callback for the PollAnswerHandler of src.bot.launch.dispatcher. It is called when a poll
+    answer is given. It considers the answer and may make the bot take next action of the interaction.
 
     Args:
         update (telegram.Update): update received after a poll answer is given.

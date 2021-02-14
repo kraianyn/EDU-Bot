@@ -57,7 +57,7 @@ def report_on_updates(subjects: list[str], points: list[float], changes: list[fl
             changes_str.append(SUBJECTS_ADDED[language].format(', '.join(new)))
         changes_str = '\n'.join(changes_str)
 
-        points_str = '\n'.join(tuple(f'{s}:  {p}' for s, p in zip(subjects + new, points)))
+        points_str = '\n'.join([f'{s}:  {p}' for s, p in zip(subjects + new, points)])
 
         return UPDATES[language].format(changes_str, points_str)
 
@@ -211,7 +211,7 @@ def report_on_related_chats(num_groupmates: int, num_group_chats: int, language:
     Args:
         num_groupmates (int): number of the student's registered groupmates.
         num_group_chats (int): number of group chats that the student's group has registered.
-        language (int): index of the student's language, according to src.config.LANGUAGES.
+        language (int): index of the student's language, according to src.bot.config.LANGUAGES.
 
     Returns (tuple[str, None or tuple[tuple[str]]]): text message that contains information described above, and tuple
         of strings describing actions to start LC (None if the student has not made the number of registered students
@@ -583,11 +583,11 @@ def report_on_events(events: dict[int, list[str]], language: int) -> str:
 
     Args:
         events (dict[int, list[str]]): events by number of days left.
-        language (int): index that the message will be in, according to src.config.LANGUAGES.
+        language (int): index that the message will be in, according to src.bot.config.LANGUAGES.
 
     Returns (str): text message that contains information described above.
     """
-    event_groups = list[str]()
+    event_groups: list[str] = []
 
     if 0 in events:
         event_groups.append(TODAY[language].format('\n'.join(events[0])))

@@ -30,7 +30,7 @@ class Interaction:
         ONGOING_MESSAGE (tuple[str]): message in case of an attempt to start a different interaction.
         ALREADY_MESSAGE (tuple[str]): message in case of using self.COMMAND during the interaction.
         chat_id (int): id of the chat that the interaction is in.
-        language (int): index of interaction's language, according to src.config.LANGUAGES.
+        language (int): index of interaction's language, according to src.bot.config.LANGUAGES.
         next_action (Callable[[Update], None]): method that makes the bot take the next step of the interaction.
     """
     COMMAND: str
@@ -44,15 +44,15 @@ class Interaction:
 
     def __init__(self, record: a.ChatRecord = None):
         """
-        This method is called when an interaction is started. It adds the interaction to src.interactions.current and if
-        possible, initializes the interaction's attributes: chat_id, language (its index according to
-        src.config.LANGUAGES), group_id (id of the group that the chat is related to), is_familiar (whether the user
-        starts the interaction for the first time), familiarity (src.auxiliary.Familiarity, None if the user starts the
-        interaction not for the first time).
+        This method is called when an interaction is started. It adds the interaction to src.bot.interactions.current
+        and if possible, initializes the interaction's attributes: chat_id, language (its index according to
+        src.bot.config.LANGUAGES), group_id (id of the group that the chat is related to), is_familiar (whether the user
+        starts the interaction for the first time), familiarity (src.bot.auxiliary.Familiarity, None if the user starts
+        the interaction not for the first time).
 
         Args:
-            record (src.auxiliary.ChatRecord, optional): record of the user who starts the interaction. If given, the
-                attributes described above are initialized.
+            record (src.bot.auxiliary.ChatRecord, optional): record of the user who starts the interaction. If given,
+                the attributes described above are initialized.
         """
         if record:
             self.chat_id, self.language, self.group_id = record.id, record.language, record.group_id
@@ -117,7 +117,7 @@ class Interaction:
 
         Args:
             user_id (int): id of the user that familiarity will be updated of.
-            familiarity (src.auxiliary.Familiarity): the user's current familiarity.
+            familiarity (src.bot.auxiliary.Familiarity): the user's current familiarity.
             kwargs: new values that familiarity fields will be set to.
         """
         connection = connect(c.DATABASE)
@@ -133,7 +133,7 @@ class Interaction:
 
     def terminate(self):
         """
-        This method terminates the interaction by deleting the instance in src.interactions.current.
+        This method terminates the interaction by deleting the instance in src.bot.interactions.current.
         """
         del current[self.chat_id]
         log.cl.info(log.ENDS.format(self.chat_id, type(self).__name__))
@@ -231,8 +231,8 @@ class Registration(Interaction):
     @staticmethod
     def get_EDUs(city: str) -> list[tuple[int, str]]:
         """
-        Returns (list[tuple[int, str]]): EDUs in the given city, sorted by their name. Namely, list of tuples containing
-            the EDUs id and full name.
+        Returns (list[tuple[int, str]]): EDUs in the given city, sorted by their name. Namely, list of tuples that
+            contain the EDUs id and full name.
         """
         connection = connect(c.DATABASE)
         cursor = connection.cursor()
@@ -269,17 +269,17 @@ class Registration(Interaction):
         departments = self.get_departments()
         departments = [
             [InlineKeyboardButton(name, callback_data=str(department_id)) for department_id, name in row]
-            for row in tuple(departments[i:i + 4] for i in range(0, len(departments), 4))
+            for row in [departments[i:i + 4] for i in range(0, len(departments), 4)]
         ]
         markup = InlineKeyboardMarkup(departments)
 
         query.message.edit_text(t.ASK_DEPARTMENT[self.language], reply_markup=markup)
         self.next_action = self.ask_group_name
 
-    def get_departments(self) -> list[tuple[int, str]]:
+    def get_departments(self) -> tuple[tuple[int, str]]:
         """
-        Returns (list[tuple[int, str]]): departments of the chosen EDU, sorted by their names. Namely, list of tuples
-            containing the department's id and name.
+        Returns (tuple[tuple[int, str]]): departments of the chosen EDU, sorted by their names. Namely, list of tuples
+            that contain the department's id and name.
         """
         connection = connect(c.DATABASE)
         cursor = connection.cursor()
@@ -293,7 +293,7 @@ class Registration(Interaction):
         cursor.close()
         connection.close()
 
-        return list(enumerate(departments.split()))
+        return tuple(enumerate(departments.split()))
 
     def ask_group_name(self, update: Update):
         """
@@ -373,6 +373,10 @@ class Registration(Interaction):
             # the first group to be registered of a department has index 0 within the department
 
     def get_department_group_records(self) -> list[tuple[int, str]]:
+        """
+        Returns (list[tuple[int, str]]): records of groups from the chat's department. Namely, list of tuples that
+            contain the group's id and name.
+        """
         connection = connect(c.DATABASE)
         cursor = connection.cursor()
 
@@ -390,11 +394,11 @@ class Registration(Interaction):
     def create_record(self, update: Update, registered_at: str, group_name: str):
         """
         This method is the second step of finishing the registration. It creates a new record in the database for the
-        chat, saving its id, type index (according to src.config.CHAT_TYPES), username (if unavailable, replaced with
-        full name or first name for private chats, with title for others), language index (according to
-        src.config.LANGUAGES), id of the group that it is related to, time when the chat has finished the registration.
-        For private chats, also are included src.config.STATIC_INITIAL_STUDENT values of the chat's role in the group
-        and familiarity with the bot's interactions.
+        chat, saving its id, type index (according to src.bot.config.CHAT_TYPES), username (if unavailable, replaced
+        with full name or first name for private chats, with title for others), language index (according to
+        src.bot.config.LANGUAGES), id of the group that it is related to, time when the chat has finished the
+        registration. For private chats, also are included src.bot.config.STATIC_INITIAL_STUDENT values of the chat's
+        role in the group and familiarity with the bot's interactions.
 
         If the chat is the first one from the group to be registered, a new record for the group is also created, saving
         its id and name.
@@ -443,9 +447,9 @@ class Registration(Interaction):
         with) the new chat.
 
         If the chat is private (the new user is a student) and has made the number of registered students from the
-        group, defined as src.config.MIN_GROUPMATES_FOR_LC, big enough for leader confirmation (LC), the students are
-        notified about it. If the group has not registered a group chat, they are also reminded to do it, since it is
-        necessary for LC.
+        group, defined as src.bot.config.MIN_GROUPMATES_FOR_LC, big enough for leader confirmation (LC), the students
+        are notified about it. If the group has not registered a group chat, they are also reminded to do it, since it
+        is necessary for LC.
 
         Args:
             given_group_name (str): the given group name.
@@ -490,7 +494,7 @@ class Registration(Interaction):
                 'WHERE group_id = ? AND type = 0',
                 (self.group_id,)
             )
-            student_usernames = tuple(r[0] for r in cursor.fetchall())
+            student_usernames: list[str] = [r[0] for r in cursor.fetchall()]
 
             text_leader = t.STUDENTS_FOUND[self.language].format('\n'.join(student_usernames))
 
@@ -518,7 +522,7 @@ class LeaderConfirmation(Interaction):
 
         self.poll_message_id: int = None
         self.num_votes, self.num_positive_votes = 0, 0
-        self.late_claimers: list[tuple[int, int]] = list()
+        self.late_claimers: list[tuple[int, int]] = []
 
         self.send_confirmation_poll()
         self.next_action = self.handle_answer
@@ -538,8 +542,8 @@ class LeaderConfirmation(Interaction):
         """
         This method is called when the bot receives an update after the leader confirmation poll is sent. If the update
         is not caused by giving a poll answer, it is ignored. Otherwise, the given answer is counted unless it is given
-        by the candidate. If the number of votes reaches src.config.MIN_GROUPMATES_FOR_LEADER_CONFORMATION, the poll is
-        deleted (closed) and it is checked whether the candidate is confirmed to be the group's leader.
+        by the candidate. If the number of votes reaches src.bot.config.MIN_GROUPMATES_FOR_LEADER_CONFORMATION, the poll
+        is deleted (closed) and it is checked whether the candidate is confirmed to be the group's leader.
 
         Args:
             update (telegram.Update): update received after the leader confirmation poll is sent.
@@ -631,7 +635,7 @@ class LeaderConfirmation(Interaction):
 
         Args:
             user_id (int): id of the groupmate to remember.
-            language (int): index of the groupmate's language, according to src.config.LANGUAGES.
+            language (int): index of the groupmate's language, according to src.bot.config.LANGUAGES.
         """
         self.late_claimers.append((user_id, language))
 
@@ -659,7 +663,7 @@ class LeaderConfirmation(Interaction):
     def inspect_edu_year(self, edu_year: str) -> Union[tuple[int, int], str]:
         """
         This method looks for a possible reason why the given information about the group's years in the EDU is invalid.
-        It involves using src.config.EDU_YEAR_PATTERN regular expression to check the format, and checks the given
+        It involves using src.bot.config.EDU_YEAR_PATTERN regular expression to check the format, and checks the given
         values for the current year and for how many years the group is going to study in total.
 
         Args:
@@ -717,10 +721,10 @@ class LeaderConfirmation(Interaction):
 
 def displaying_commands(record: a.ChatRecord, update: Update):
     """
-    This function makes the bot send a message, a reply in non-private chats, containing commands that are available for
-    the user. They depend from the user's role and EDU.
+    This function makes the bot send a message, a reply in non-private chats, that contains commands that are available
+    for the user. They depend from the user's role and EDU.
 
-    Args: see src.managers.deleting_data.__doc__.
+    Args: see src.bot.managers.deleting_data.__doc__.
     """
     kpi_command = t.KPI_CAMPUS_COMMAND[record.language] if record.group_id // 10 ** 5 == c.KPI_ID else ''
 
@@ -769,8 +773,8 @@ class AddingAdmin(Interaction):
     def get_ordinary_records(self) -> list[tuple[int, str, int]]:
         """
         Returns (list[tuple[int, str, int]]): the group's ordinary students, sorted by their usernames or other
-            identifiers. Namely, list of tuples containing the student's telegram id, username or other identifier, and
-            language (its index according to src.config.LANGUAGES).
+            identifiers. Namely, list of tuples that contain the student's telegram id, username or other identifier,
+            and language (its index according to src.bot.config.LANGUAGES).
         """
         connection = connect(c.DATABASE)
         cursor = connection.cursor()
@@ -858,8 +862,8 @@ class RemovingAdmin(Interaction):
     def get_admin_records(self) -> list[tuple[int, str, int]]:
         """
         Returns (list[tuple[int, str, int]]): the group's admins, sorted by their usernames or other identifiers.
-            Namely, list of tuples containing the admin's telegram id, username or other identifier, and language (its
-            index according to src.config.LANGUAGES).
+            Namely, list of tuples that contain the admin's telegram id, username or other identifier, and language (its
+            index according to src.bot.config.LANGUAGES).
         """
         connection = connect(c.DATABASE)
         cursor = connection.cursor()
@@ -945,10 +949,10 @@ class RemovingAdmin(Interaction):
 
 def displaying_events(record: a.ChatRecord, update: Update):
     """
-    This function makes the bot send a message, a reply in non-private chats, containing upcoming events of the user's
-    group.
+    This function makes the bot send a message, a reply in non-private chats, that contains upcoming events of the
+    user's group.
 
-    Args: see src.manager.deleting_data.__doc__.
+    Args: see src.bot.manager.deleting_data.__doc__.
     """
     connection = connect(c.DATABASE)
     cursor = connection.cursor()
@@ -968,7 +972,7 @@ def displaying_events(record: a.ChatRecord, update: Update):
         now = datetime.now()
         today = datetime(now.year, now.month, now.day, 0, 0)
 
-        events = dict[int, list[str]]()
+        events: dict[int, list[str]] = {}
         for event_str in events_str:
             event = a.str_to_datetime(event_str)
 
@@ -990,10 +994,10 @@ def displaying_events(record: a.ChatRecord, update: Update):
 
 def displaying_info(record: a.ChatRecord, update: Update):
     """
-    This function makes the bot send a message, a reply in non-private chats, containing information that the user's
+    This function makes the bot send a message, a reply in non-private chats, that contains information that the user's
     group has saved.
 
-    Args: see src.manager.deleting_data.__doc__.
+    Args: see src.bot.manager.deleting_data.__doc__.
     """
     connection = connect(c.DATABASE)
     cursor = connection.cursor()
@@ -1072,10 +1076,10 @@ class AddingEvent(Interaction):
 
     def inspect_date(self, date: str) -> Union[None, str]:
         """
-        This method looks for a possible reason why the given date is invalid. It involves using src.config.DATE_PATTERN
-        regular expression to check the format, and checks the given values for month and day of the month (and for hour
-        and minute if time is also given). February's non-constant length is considered. The given date is always
-        considered as the next time it comes, not of the current year.
+        This method looks for a possible reason why the given date is invalid. It involves using
+        src.bot.config.DATE_PATTERN regular expression to check the format, and checks the given values for month and
+        day of the month (and for hour and minute if time is also given). February's non-constant length is considered.
+        The given date is always considered as the next time it comes, not of the current year.
 
         Args:
             date (str): the given date.
@@ -1195,26 +1199,26 @@ class AddingEvent(Interaction):
         answer about all events before it.
         """
         student_records, group_chat_records = self.get_related_records()
-        currently_asked = tuple(
+        currently_asked = [
             r[0] for r in student_records if r[0] in current and isinstance(current[r[0]], EventAnswering)
-        )
+        ]
         event_answering = EventAnswering(self.group_id) if not currently_asked else current[currently_asked[0]]
 
         # the event with the weekday in each language
-        translated_event = tuple(
+        translated_event = [
             f'{t.WEEKDAYS[self.weekday_index][index]} {self.event[2:]}' for index in range(len(c.LANGUAGES))
-        )
+        ]
 
-        answers = tuple(
+        answers = [
             [[
                 InlineKeyboardButton(t.YES[index], callback_data='y'),
                 InlineKeyboardButton(t.NO[index], callback_data='n')
             ]]
             for index in range(len(c.LANGUAGES))
-        )
-        markup = tuple(InlineKeyboardMarkup(buttons) for buttons in answers)
+        ]
+        markup = [InlineKeyboardMarkup(buttons) for buttons in answers]
 
-        asked = dict[int, tuple[int, int]]()
+        asked: dict[int, tuple[int, int]] = {}
         for user_id, language, familiarity in student_records:
 
             if user_id not in currently_asked:  # if the student has no unanswered events
@@ -1240,9 +1244,9 @@ class AddingEvent(Interaction):
     def get_related_records(self) -> tuple[list[tuple[int, int, str]], list[tuple[int, int]]]:
         """
         Returns (tuple[list[tuple[int, int, str]], list[tuple[int, int]]]): chats related to the admin's group. Namely,
-            list of student records (tuples containing the student's telegram id, language (its index according to
-            src.config.LANGUAGES), and familiarity with the bot's interactions) and list of group-chat records (tuples
-            containing the chat's id and language index).
+            list of student records (tuples that contain the student's telegram id, language (its index according to
+            src.bot.config.LANGUAGES), and familiarity with the bot's interactions) and list of group-chat records
+            (tuples that contain the chat's id and language index).
         """
         connection = connect(c.DATABASE)
         cursor = connection.cursor()
@@ -1266,9 +1270,11 @@ class AddingEvent(Interaction):
 
 
 class EventAnswering:
+    Asked = dict[int, tuple[int, int]]
+
     def __init__(self, group_id: int):
         self.group_id = group_id
-        self.queue = OrderedDict[str, dict[int, tuple[int, int]]]()
+        self.queue = OrderedDict[str, self.Asked]()
 
         self.next_action = self.handle_answer
 
@@ -1333,7 +1339,7 @@ class EventAnswering:
         Args:
             user_id (int): id of the group's student who is asked about an event.
 
-        Returns (tuple[str, int, int]): event that the student is currently asked about, its index in the queue, and the
+        Returns (tuple[str, int]): event that the student is currently asked about, its index in the queue, and the
             student's index in the list of all students who are (will be) asked about the same event.
         """
         for event_index, (event, asked) in enumerate(self.queue.items()):
@@ -1393,7 +1399,7 @@ class EventAnswering:
 
         bot.edit_message_text(text, user_id, message_id, reply_markup=markup)
 
-    def add_event(self, event: str, asked: dict[int, tuple[int, int]]):
+    def add_event(self, event: str, asked: Asked):
         """
         This method adds an event to the queue.
 
@@ -1409,31 +1415,34 @@ class EventAnswering:
 
     def cancel_question(self, event: str) -> tuple[int]:
         """
-        This method makes the bot delete the event from the queue. If there are students who are currently asked about
-        it, they are asked whether they want to be reminded about the next event in the queue.
+        This method makes the bot delete the event from the queue. If there are students who are currently asked whether
+        they want to be reminded about it, they are asked whether they want to be reminded about the next event in the
+        queue.
 
         Args:
             event (str): event that will be removed from the queue.
+
+        Returns (tuple[int]): ids of students who have not answered whether they want to be reminded about the event.
         """
         if event not in self.queue:
-            return tuple()
+            return ()
 
         event_index = tuple(self.queue.keys()).index(event)
 
-        translated_answers = tuple(
+        translated_answers = [
             [[
                 InlineKeyboardButton(t.YES[index], callback_data='y'),
                 InlineKeyboardButton(t.NO[index], callback_data='n')
             ]]
             for index in range(len(c.LANGUAGES))
-        )
-        translated_markup = tuple(InlineKeyboardMarkup(answers) for answers in translated_answers)
+        ]
+        translated_markup = [InlineKeyboardMarkup(answers) for answers in translated_answers]
 
         for user_id, (message_id, language) in self.queue[event].items():
             bot.delete_message(user_id, message_id)  # deleting the question about the event
 
             # if the student is currently asked about the event
-            if not event_index or user_id not in tuple(tuple(self.queue.values())[event_index - 1].keys()):
+            if not event_index or user_id not in [tuple(self.queue.values())[event_index - 1].keys()]:
 
                 if event_index == len(self.queue) - 1:  # if the event is the last one in the queue
                     del current[user_id]
@@ -1454,7 +1463,7 @@ class EventAnswering:
         """
         This method makes the bot respond if the student uses a command during the interaction.
 
-        Args: see src.interactions.Interaction.respond.__doc__.
+        Args: see src.bot.interactions.Interaction.respond.__doc__.
         """
         log.cl.info(log.INTERRUPTS.format(message.from_user.id, command, type(self).__name__))
 
@@ -1474,7 +1483,7 @@ class CancelingEvent(Interaction):
 
     def __init__(self, record: a.ChatRecord, events: str):
         super().__init__(record)
-        self.events = tuple(event.rpartition('|')[0] for event in events.split('\n'))
+        self.events = [event.rpartition('|')[0] for event in events.split('\n')]
 
         self.ask_event()
         self.next_action = self.delete_event
@@ -1550,16 +1559,15 @@ class CancelingEvent(Interaction):
         connection.close()
         log.cl.info(log.CANCELS.format(self.chat_id, a.cut(event)))
 
-        # the event with its weekday in each language
-        translated_event = tuple(
+        translated_event = [
             f'{t.WEEKDAYS[int(event[0])][index]} {event[2:]}' for index in range(len(c.LANGUAGES))
-        )
+        ]
 
         query.message.edit_text(t.EVENT_CANCELED[self.language].format(translated_event[self.language]))
         self.notify(event, translated_event)
         self.terminate()
 
-    def notify(self, event: str, translated_event: tuple[str]):
+    def notify(self, event: str, translated_event: list[str]):
         """
         This method is the last step of canceling an event, which the interaction is terminates after. It sends a
         notification to group chats of the admin's group and the admin's groupmates who have agreed to be reminded about
@@ -1568,7 +1576,7 @@ class CancelingEvent(Interaction):
 
         Args:
             event (str): the canceled event.
-            translated_event (tuple[str]): the canceled event in each language, according to src.config.LANGUAGES.
+            translated_event (tuple[str]): the canceled event in each language, according to src.bot.config.LANGUAGES.
         """
         connection = connect(c.DATABASE)
         cursor = connection.cursor()
@@ -1583,7 +1591,7 @@ class CancelingEvent(Interaction):
         cursor.close()
         connection.close()
 
-        not_answered = tuple()
+        not_answered = ()
         for chat_id, language in related_records:
             if chat_id in current and isinstance(current[chat_id], EventAnswering):
                 not_answered = current[chat_id].cancel_question(event)
@@ -1851,8 +1859,8 @@ class NotifyingGroup(Interaction):
 
     def get_related_records(self) -> list[tuple[int, int]]:
         """
-        Returns (list[tuple[int, int]]): chats that are related to the admin's group. Namely, list of tuples containing
-            the chat's id and language (its index according to src.config.LANGUAGES).
+        Returns (list[tuple[int, int]]): chats that are related to the admin's group. Namely, list of tuples that
+            contain the chat's id and language (its index according to src.bot.config.LANGUAGES).
         """
         connection = connect(c.DATABASE)
         cursor = connection.cursor()
@@ -1889,7 +1897,8 @@ class AskingGroup(Interaction):
         self.stop_markup = InlineKeyboardMarkup(stop)
 
         self.asked: dict[int, tuple[str, int, a.Familiarity, int]] = None
-        self.answered, self.refused = list[tuple[str, str]](), list[str]()
+        self.answered: list[tuple[str, str]] = []
+        self.refused: list[str] = []
 
         self.send_message((t.ASK_QUESTION if self.is_familiar else t.FT_ASK_QUESTION)[self.language])
         self.next_action = self.handle_question
@@ -1998,9 +2007,9 @@ class AskingGroup(Interaction):
 
     def get_asked(self) -> dict[int, list[str, int, a.Familiarity]]:
         """
-        Returns (dict[int, list[str, int, a.Familiarity]]): the leader's groupmates. Namely, dict with items with the
-            student's id as the key and a list containing their username, language (its index according to
-            src.config.LANGUAGES), and familiarity with the bot's interactions, as the value.
+        Returns (dict[int, list[str, int, a.Familiarity]]): the leader's groupmates. Namely, dict with their ids as the
+            keys and lists that contain the student's username, language (its index according to
+            src.bot.config.LANGUAGES), and familiarity with the bot's interactions, as the values.
         """
         connection = connect(c.DATABASE)
         cursor = connection.cursor()
@@ -2024,13 +2033,13 @@ class AskingGroup(Interaction):
         in. An option to refuse to answer by clicking an inline button is also provided.
 
         Returns(tuple[telegram.InlineKeyboardMarkup]): inline markups with a refuse inline button in each language,
-            according to src.config.LANGUAGES.
+            according to src.bot.config.LANGUAGES.
         """
-        translated_refuse = tuple(  # refuse inline button in each language
+        translated_refuse = [
             [[InlineKeyboardButton(t.REFUSE_TO_ANSWER[index], callback_data='refuse')]]
             for index in range(len(c.LANGUAGES))
-        )
-        translated_markup = tuple(InlineKeyboardMarkup(refuse) for refuse in translated_refuse)
+        ]
+        translated_markup = [InlineKeyboardMarkup(refuse) for refuse in translated_refuse]
 
         for user_id, (username, language, familiarity) in self.asked.items():
             current[user_id] = self
@@ -2082,7 +2091,7 @@ class AskingGroup(Interaction):
 
         usernames_answered = '\n\n'.join([f'{username}\n{answer}' for username, answer in self.answered])
         usernames_refused = '\n'.join(self.refused)
-        usernames_asked = '\n'.join(tuple(r[0] for r in self.asked.values()))
+        usernames_asked = '\n'.join([r[0] for r in self.asked.values()])
 
         self.update_answers(self.chat_id, self.language, self.leader_answer_message_id,
                             (usernames_answered, usernames_refused, usernames_asked))
@@ -2108,7 +2117,7 @@ class AskingGroup(Interaction):
 
         Args:
             chat_id (int): id of the chat that the answer message is in.
-            language (int): index of the chat's language, according to src.config.LANGUAGES.
+            language (int): index of the chat's language, according to src.bot.config.LANGUAGES.
             answer_message_id (int): if of the answer message.
             usernames(tuple[str]): new text for the message, based on the current information about the students'
                 responses (answers, refusals, absence of a response).
@@ -2209,8 +2218,8 @@ class ChangingLeader(Interaction):
         group's admins if they are there, and the group's ordinary students otherwise.
 
         Returns (list[tuple[int, str, int]]): candidates for being the new leader, sorted by their usernames or other
-            identifiers. Namely, list of tuples containing the candidate's telegram id, username or other identifier,
-            and language (its index according to src.config.LANGUAGES).
+            identifiers. Namely, list of tuples that contain the candidate's telegram id, username or other identifier,
+            and language (its index according to src.bot.config.LANGUAGES).
         """
         connection = connect(c.DATABASE)
         cursor = connection.cursor()
@@ -2402,4 +2411,4 @@ class DeletingData(Interaction):
             a.update_group_chat_language(self.group_id)
 
 
-current = dict[int, Union[Interaction, EventAnswering]]()
+current: dict[int, Union[Interaction, EventAnswering]] = {}

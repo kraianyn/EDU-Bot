@@ -14,8 +14,8 @@ import log as l
 
 def registration(chat: Chat, is_private: bool, message: Message):
     """
-    This function is responsible for deciding whether src.interactions.Registration interaction will be started, which
-    is the case if the chat is not already registered and is not already registering. Otherwise, the bot sends a
+    This function is responsible for deciding whether src.bot.interactions.Registration interaction will be started,
+    which is the case if the chat is not already registered and is not already registering. Otherwise, the bot sends a
     message, a reply in non-private chats, explaining why the interaction cannot be started.
 
     Args:
@@ -35,11 +35,11 @@ def registration(chat: Chat, is_private: bool, message: Message):
 
 def leader_confirmation(record: ChatRecord, update: Update):
     """
-    This function is responsible for deciding whether src.interactions.LeaderConfirmation interaction makes sense to be
-    started. If it does, an attempt to start the interaction is made by calling src.managers.attempt_interaction.
+    This function is responsible for deciding whether src.bot.interactions.LeaderConfirmation interaction makes sense to
+    be started. If it does, an attempt to start the interaction is made by calling src.bot.managers.attempt_interaction.
     Otherwise, the bot sends a message, a reply in non-private chats, explaining why the interaction cannot be started.
 
-    Args: see src.managers.deleting_data.__doc__.
+    Args: see src.bot.managers.deleting_data.__doc__.
     """
     chat, message = update.effective_chat, update.effective_message
     is_private = chat.type == Chat.PRIVATE
@@ -110,13 +110,13 @@ def leader_confirmation(record: ChatRecord, update: Update):
 
 def adding_admin(record: ChatRecord, update: Update):
     """
-    This function is responsible for deciding whether src.interactions.AddingAdmin interaction makes sense to be
+    This function is responsible for deciding whether src.bot.interactions.AddingAdmin interaction makes sense to be
     started, which is the case if adding an will not exceed the maximum ratio of admins to all students in the group,
-    defined as src.config.MAX_ADMINS_STUDENTS_RATIO. If it will not, an attempt to start the interaction is made by
-    calling src.managers.attempt_interaction. Otherwise, the bot sends a message, a reply in non-private chats,
+    defined as src.bot.config.MAX_ADMINS_STUDENTS_RATIO. If it will not, an attempt to start the interaction is made by
+    calling src.bot.managers.attempt_interaction. Otherwise, the bot sends a message, a reply in non-private chats,
     explaining why the interaction cannot be started.
 
-    Args: see src.managers.deleting_data.__doc__.
+    Args: see src.bot.managers.deleting_data.__doc__.
     """
     chat, message = update.effective_chat, update.effective_message
     is_private = chat.type == Chat.PRIVATE
@@ -151,12 +151,12 @@ def adding_admin(record: ChatRecord, update: Update):
 
 def removing_admin(record: ChatRecord, update: Update):
     """
-    This function is responsible for deciding whether src.interactions.RemovingAdmin interaction makes sense to be
+    This function is responsible for deciding whether src.bot.interactions.RemovingAdmin interaction makes sense to be
     started, which is the case if there are admins in the group. If there are, an attempt to start the interaction is
-    made by calling src.managers.attempt_interaction. Otherwise, the bot sends a message, a reply in non-private chats,
-    explaining why the interaction cannot be started..
+    made by calling src.bot.managers.attempt_interaction. Otherwise, the bot sends a message, a reply in non-private
+    chats, explaining why the interaction cannot be started..
 
-    Args: see src.managers.deleting_data.__doc__.
+    Args: see src.bot.managers.deleting_data.__doc__.
     """
     chat, message = update.effective_chat, update.effective_message
     is_private = chat.type == Chat.PRIVATE
@@ -184,10 +184,10 @@ def connecting_ecampus(record: ChatRecord, update: Update):
 
 def adding_event(record: ChatRecord, update: Update):
     """
-    This function is responsible for making an attempt to start src.interactions.AddingEvent interaction by calling
-    src.managers.attempt_interaction.
+    This function is responsible for making an attempt to start src.bot.interactions.AddingEvent interaction by calling
+    src.bot.managers.attempt_interaction.
 
-    Args: see src.managers.deleting_data.__doc__.
+    Args: see src.bot.managers.deleting_data.__doc__.
     """
     chat = update.effective_chat
     is_private = chat.type == Chat.PRIVATE
@@ -197,12 +197,12 @@ def adding_event(record: ChatRecord, update: Update):
 
 def canceling_event(record: ChatRecord, update: Update):
     """
-    This function is responsible for deciding whether src.interactions.CancelingEvent makes sense to be started, which
-    is the case if the group has upcoming events. If it does, an attempt to start the interaction is made by calling
-    src.managers.attempt_interaction. Otherwise, the bot sends a message, a reply in non-private chats, explaining why
-    the interaction cannot be started.
+    This function is responsible for deciding whether src.bot.interactions.CancelingEvent makes sense to be started,
+    which is the case if the group has upcoming events. If it does, an attempt to start the interaction is made by
+    calling src.bot.managers.attempt_interaction. Otherwise, the bot sends a message, a reply in non-private chats,
+    explaining why the interaction cannot be started.
 
-    Args: see src.managers.deleting_data.__doc__.
+    Args: see src.bot.managers.deleting_data.__doc__.
     """
     chat, message = update.effective_chat, update.effective_message
     is_private = chat.type = Chat.PRIVATE
@@ -226,10 +226,10 @@ def canceling_event(record: ChatRecord, update: Update):
 
 def saving_info(record: ChatRecord, update: Update):
     """
-    This function is responsible for making an attempt to start src.interactions.SavingInfo interaction by calling
-    src.managers.attempt_interaction.
+    This function is responsible for making an attempt to start src.bot.interactions.SavingInfo interaction by calling
+    src.bot.managers.attempt_interaction.
 
-    Args: see src.managers.deleting_data.__doc__.
+    Args: see src.bot.managers.deleting_data.__doc__.
     """
     chat = update.effective_chat
     is_private = chat.type == Chat.PRIVATE
@@ -239,13 +239,13 @@ def saving_info(record: ChatRecord, update: Update):
 
 def deleting_info(record: ChatRecord, update: Update):
     """
-    This function is responsible for deciding whether src.interactions.DeletingInfo and src.interactions.ClearingInfo
-    interactions make sense to be started, which is the case if the group's saved information is not empty. If it is
-    not, an attempt to start the appropriate interaction (see src.managers.COMMANDS) is made by calling
-    src.managers.attempt_interaction. Otherwise, the bot sends a message, a reply in non-private chats, explaining why
-    the interaction cannot be started.
+    This function is responsible for deciding whether src.bot.interactions.DeletingInfo and
+    src.bot.interactions.ClearingInfo interactions make sense to be started, which is the case if the group's saved
+    information is not empty. If it is not, an attempt to start the appropriate interaction
+    (see src.bot.managers.COMMANDS) is made by calling src.bot.managers.attempt_interaction. Otherwise, the bot sends a
+    message, a reply in non-private chats, explaining why the interaction cannot be started.
 
-    Args: see src.managers.deleting_data.__doc__.
+    Args: see src.bot.managers.deleting_data.__doc__.
     """
     chat, message = update.effective_chat, update.effective_message
     is_private, command = chat.type == Chat.PRIVATE, message.text[1:].removesuffix(USERNAME).lower()
@@ -274,12 +274,12 @@ def deleting_info(record: ChatRecord, update: Update):
 
 def leader_involving_group(record: ChatRecord, update: Update):
     """
-    This function is responsible for deciding whether src.interactions.ChangingLeader, src.interactions.NotifyingGroup,
-    and src.interactions.AskingGroup interactions make sense to be started. If they do, an attempt to start the
-    appropriate interaction is made by calling src.managers.attempt_interaction. Otherwise, the bot sends a message, a
-    reply in non-private chats, explaining why the interaction cannot be started.
+    This function is responsible for deciding whether src.bot.interactions.ChangingLeader,
+    src.bot.interactions.NotifyingGroup, and src.bot.interactions.AskingGroup interactions make sense to be started. If
+    they do, an attempt to start the appropriate interaction is made by calling src.bot.managers.attempt_interaction.
+    Otherwise, the bot sends a message, a reply in non-private chats, explaining why the interaction cannot be started.
 
-    Args: see src.managers.deleting_data.__doc__.
+    Args: see src.bot.managers.deleting_data.__doc__.
     """
     chat, message = update.effective_chat, update.effective_message
     is_private, command = chat.type == Chat.PRIVATE, message.text[1:].removesuffix(USERNAME).lower()
@@ -329,13 +329,13 @@ def sending_feedback(record: ChatRecord, update: Update):
 
 def deleting_data(record: ChatRecord, update: Update):
     """
-    This function is responsible for determining whether src.interactions.DeletingData interaction makes sense to be
+    This function is responsible for determining whether src.bot.interactions.DeletingData interaction makes sense to be
     started, which is the case if the chat is private. If it is, an attempt to start the interaction is made by calling
-    src.managers.attempt_interaction. In non-private chats, the bot replies with a message explaining how this command
-    works in such chats.
+    src.bot.managers.attempt_interaction. In non-private chats, the bot replies with a message explaining how this
+    command works in such chats.
 
     Args:
-        record (src.auxiliary.ChatRecord): record of the user who is using the command.
+        record (src.bot.auxiliary.ChatRecord): record of the user who is using the command.
         update (telegram.Update): update received after the command is used.
     """
     chat = update.effective_chat
@@ -366,7 +366,7 @@ def deleting_data(record: ChatRecord, update: Update):
 
 
 Command = namedtuple('Command', ('manager', 'role', 'interaction'))
-COMMANDS: dict[str, Command] = {
+COMMANDS = {
     'start': Command(registration, c.ORDINARY_ROLE, i.Registration),
     'claim': Command(leader_confirmation, c.ORDINARY_ROLE, i.LeaderConfirmation),
     'commands': Command(i.displaying_commands, c.ORDINARY_ROLE, None),
@@ -399,8 +399,8 @@ def attempt_interaction(command: Command, record: ChatRecord, chat: Chat, is_pri
     chats.
 
     Args:
-        command (src.managers.Command): namedtuple that represents the received command.
-        record (src.auxiliary.ChatRecord): record of the user who is using the command.
+        command (src.bot.managers.Command): namedtuple that represents the received command.
+        record (src.bot.auxiliary.ChatRecord): record of the user who is using the command.
         chat (telegram.Chat): chat the the command is being used in.
         is_private (bool): whether that chat is private.
         message (telegram.Message): message that the command is sent in.

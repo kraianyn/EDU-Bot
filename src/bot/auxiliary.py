@@ -22,7 +22,7 @@ def get_chat_record(chat_id: int) -> Union[ChatRecord, None]:
     Args:
         chat_id (int): id of the chat that record will be returned of.
 
-    Returns (src.auxiliary.ChatRecord or None): record of the chat with the given id. None if the chat is not
+    Returns (src.bot.auxiliary.ChatRecord or None): record of the chat with the given id. None if the chat is not
         registered.
     """
     connection = connect(DATABASE)
